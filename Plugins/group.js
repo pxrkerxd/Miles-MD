@@ -48,18 +48,34 @@ export default {
     }
 
     // Permission checks for admin commands
-    const adminOnlyCmds = ["kick", "remove", "promote", "demote", "mute", "unmute", "antilink", "welcome", "setname", "setdesc"];
+    const adminOnlyCmds = [
+      "kick",
+      "remove",
+      "promote",
+      "demote",
+      "tagall",
+      "everyone",
+      "hidetag",
+      "mute",
+      "unmute",
+      "antilink",
+      "welcome",
+      "setname",
+      "setdesc",
+    ];
     if (adminOnlyCmds.includes(inputCMD) && !isGroupAdmin && !isCreator) {
       await doReact("🚫");
       return m.reply("🕸️ *Access Denied:* Only Group Admins can use this ability!");
     }
+
+    const botJid = SpiderBot.user?.id ? (SpiderBot.user.id.split(":")[0] + "@s.whatsapp.net") : "";
+    const botNum = botJid.split("@")[0].replace(/[^0-9]/g, "");
 
     switch (inputCMD) {
       case "tagall":
       case "everyone": {
         await doReact("📢");
         const mentions = groupParticipants.map((p) => p.id);
-        const botJid = (SpiderBot.user?.id || "").split(":")[0] + "@s.whatsapp.net";
         const ownerNumbers = global.owner || ["919123764864"];
 
         let tagMsg = `╔═══〔 🕷️ *SPIDER-SENSE BROADCAST* 〕═══╗\n`;
@@ -73,7 +89,7 @@ export default {
           const userNum = userJid.split("@")[0];
 
           let memberName = "";
-          if (userJid === botJid || userNum === botJid.split("@")[0]) {
+          if (userJid === botJid || userNum === botNum) {
             memberName = `${global.botName || "Miles Morales"} (Bot)`;
           } else if (ownerNumbers.includes(userNum)) {
             memberName = `${global.ownername || "Parker"} (Creator)`;
@@ -102,7 +118,6 @@ export default {
       }
 
       case "hidetag": {
-        if (!isGroupAdmin && !isCreator) return m.reply("Only Admins can hidetag!");
         await doReact("👁️");
         const mentions = groupParticipants.map((p) => p.id);
         const broadcastText = text || (m.quoted ? m.quoted.text : "🕷️ *Spider-Sense Alert!*");
@@ -111,8 +126,11 @@ export default {
 
       case "kick":
       case "remove": {
-        if (!isBotAdmin && !isCreator) return m.reply("🕸️ *Action Required:* The bot/account must have **Group Admin** permissions in this group to remove members!");
-        
+        if (!isBotAdmin) {
+          await doReact("⚠️");
+          return m.reply("🕸️ *Action Required:* The bot must have **Group Admin** permissions in this group to remove members!");
+        }
+
         let target = m.quoted ? m.quoted.sender : (m.mentionedJid && m.mentionedJid[0]) || (m.mentions && m.mentions[0]);
         if (!target && text) {
           const cleanNum = text.replace(/[^0-9]/g, "");
@@ -139,19 +157,46 @@ export default {
           (p) => p.id === target || p.id.split("@")[0].replace(/[^0-9]/g, "") === targetClean
         );
         const finalTarget = matched ? matched.id : (target.includes("@") ? target : `${target}@s.whatsapp.net`);
+        const finalTargetNum = finalTarget.split("@")[0].replace(/[^0-9]/g, "");
+
+        // Safety: Prevent kicking the Bot or the Bot Creator
+        if (finalTargetNum === botNum || finalTarget === botJid) {
+          await doReact("🛑");
+          return m.reply("🕸️ *Spider-Sense Alert:* You cannot kick the bot!");
+        }
+        if (global.owner.includes(finalTargetNum)) {
+          await doReact("🛑");
+          return m.reply("🕸️ *Spider-Sense Alert:* You cannot kick the Bot Creator!");
+        }
+
+        // Safety: Prevent regular admins from kicking fellow admins
+        const targetParticipant = groupParticipants.find((p) => {
+          const pJid = p.id || "";
+          const pNum = pJid.split("@")[0].replace(/[^0-9]/g, "");
+          return pJid === finalTarget || pNum === finalTargetNum;
+        });
+        if (targetParticipant && (targetParticipant.admin === "admin" || targetParticipant.admin === "superadmin")) {
+          if (!isCreator) {
+            await doReact("🛑");
+            return m.reply("🚫 *Action Denied:* You cannot kick a fellow Group Admin!");
+          }
+        }
 
         await doReact("👢");
         try {
           await SpiderBot.groupParticipantsUpdate(m.from, [finalTarget], "remove");
-          return m.reply(`🕸️ Banished through a multiverse portal: @${finalTarget.split("@")[0]}!`, { mentions: [finalTarget] });
+          return m.reply(`🕸️ Banished through a multiverse portal: @${finalTargetNum}!`, { mentions: [finalTarget] });
         } catch (err) {
           return m.reply(`⚠️ Could not remove member: ${err.message}`);
         }
       }
 
       case "promote": {
-        if (!isBotAdmin && !isCreator) return m.reply("🕸️ *Action Required:* The bot/account must have **Group Admin** permissions in this group to promote members!");
-        
+        if (!isBotAdmin) {
+          await doReact("⚠️");
+          return m.reply("🕸️ *Action Required:* The bot must have **Group Admin** permissions in this group to promote members!");
+        }
+
         let target = m.quoted ? m.quoted.sender : (m.mentionedJid && m.mentionedJid[0]) || (m.mentions && m.mentions[0]);
         if (!target && text) {
           const cleanNum = text.replace(/[^0-9]/g, "");
@@ -178,19 +223,32 @@ export default {
           (p) => p.id === target || p.id.split("@")[0].replace(/[^0-9]/g, "") === targetClean
         );
         const finalTarget = matched ? matched.id : (target.includes("@") ? target : `${target}@s.whatsapp.net`);
+        const finalTargetNum = finalTarget.split("@")[0].replace(/[^0-9]/g, "");
+
+        const targetParticipant = groupParticipants.find((p) => {
+          const pJid = p.id || "";
+          const pNum = pJid.split("@")[0].replace(/[^0-9]/g, "");
+          return pJid === finalTarget || pNum === finalTargetNum;
+        });
+        if (targetParticipant && (targetParticipant.admin === "admin" || targetParticipant.admin === "superadmin")) {
+          return m.reply(`⚡ @${finalTargetNum} is already an Admin!`, { mentions: [finalTarget] });
+        }
 
         await doReact("🎖️");
         try {
           await SpiderBot.groupParticipantsUpdate(m.from, [finalTarget], "promote");
-          return m.reply(`⚡ Promoted to Spider-Admin: @${finalTarget.split("@")[0]}!`, { mentions: [finalTarget] });
+          return m.reply(`⚡ Promoted to Spider-Admin: @${finalTargetNum}!`, { mentions: [finalTarget] });
         } catch (err) {
           return m.reply(`⚠️ Could not promote member: ${err.message}`);
         }
       }
 
       case "demote": {
-        if (!isBotAdmin && !isCreator) return m.reply("🕸️ *Action Required:* The bot/account must have **Group Admin** permissions in this group to demote members!");
-        
+        if (!isBotAdmin) {
+          await doReact("⚠️");
+          return m.reply("🕸️ *Action Required:* The bot must have **Group Admin** permissions in this group to demote members!");
+        }
+
         let target = m.quoted ? m.quoted.sender : (m.mentionedJid && m.mentionedJid[0]) || (m.mentions && m.mentions[0]);
         if (!target && text) {
           const cleanNum = text.replace(/[^0-9]/g, "");
@@ -217,25 +275,42 @@ export default {
           (p) => p.id === target || p.id.split("@")[0].replace(/[^0-9]/g, "") === targetClean
         );
         const finalTarget = matched ? matched.id : (target.includes("@") ? target : `${target}@s.whatsapp.net`);
+        const finalTargetNum = finalTarget.split("@")[0].replace(/[^0-9]/g, "");
+
+        // Protection: cannot demote bot or creator
+        if (finalTargetNum === botNum || finalTarget === botJid) {
+          await doReact("🛑");
+          return m.reply("🕸️ *Spider-Sense Alert:* You cannot demote the bot!");
+        }
+        if (global.owner.includes(finalTargetNum)) {
+          await doReact("🛑");
+          return m.reply("🕸️ *Spider-Sense Alert:* You cannot demote the Bot Creator!");
+        }
 
         await doReact("📉");
         try {
           await SpiderBot.groupParticipantsUpdate(m.from, [finalTarget], "demote");
-          return m.reply(`🕸️ Demoted to civilian: @${finalTarget.split("@")[0]}!`, { mentions: [finalTarget] });
+          return m.reply(`🕸️ Demoted to civilian: @${finalTargetNum}!`, { mentions: [finalTarget] });
         } catch (err) {
           return m.reply(`⚠️ Could not demote member: ${err.message}`);
         }
       }
 
       case "mute": {
-        if (!isBotAdmin && !isCreator) return m.reply("🕸️ *Action Required:* The bot/account must have **Group Admin** permissions in this group to mute the chat.");
+        if (!isBotAdmin) {
+          await doReact("⚠️");
+          return m.reply("🕸️ *Action Required:* The bot must have **Group Admin** permissions in this group to mute the chat.");
+        }
         await doReact("🔒");
         await SpiderBot.groupSettingUpdate(m.from, "announcement");
         return m.reply("🔒 *Group Muted:* Only Admins can send messages now.");
       }
 
       case "unmute": {
-        if (!isBotAdmin && !isCreator) return m.reply("🕸️ *Action Required:* The bot/account must have **Group Admin** permissions in this group to unmute the chat.");
+        if (!isBotAdmin) {
+          await doReact("⚠️");
+          return m.reply("🕸️ *Action Required:* The bot must have **Group Admin** permissions in this group to unmute the chat.");
+        }
         await doReact("🔓");
         await SpiderBot.groupSettingUpdate(m.from, "not_announcement");
         return m.reply("🔓 *Group Unmuted:* Everyone can chat again! Let's swing!");
@@ -276,7 +351,7 @@ export default {
         const admins = groupParticipants.filter((p) => p.admin).map((p) => `@${p.id.split("@")[0]}`);
         const info = [
           `╭━━━〔 👥 *GROUP DOSSIER* 〕━━━╮`,
-          `┃ 🏷️ *Name:* ${groupMetadata.subject}`,
+          `┃ 🏷️ *Name:* ${groupMetadata.subject || "Spider-Group"}`,
           `┃ 🆔 *ID:* ${m.from}`,
           `┃ 👥 *Total Members:* ${groupParticipants.length}`,
           `┃ 👑 *Admins:* ${admins.join(", ")}`,
@@ -288,14 +363,20 @@ export default {
       }
 
       case "setname": {
-        if (!isBotAdmin) return m.reply("Make me Admin first!");
+        if (!isBotAdmin) {
+          await doReact("⚠️");
+          return m.reply("🕸️ *Action Required:* The bot must have **Group Admin** permissions in this group to update group name!");
+        }
         if (!text) return m.reply("Provide a new group name!");
         await SpiderBot.groupUpdateSubject(m.from, text);
         return m.reply(`✅ Group name updated to: *${text}*`);
       }
 
       case "setdesc": {
-        if (!isBotAdmin) return m.reply("Make me Admin first!");
+        if (!isBotAdmin) {
+          await doReact("⚠️");
+          return m.reply("🕸️ *Action Required:* The bot must have **Group Admin** permissions in this group to update group description!");
+        }
         if (!text) return m.reply("Provide a new group description!");
         await SpiderBot.groupUpdateDescription(m.from, text);
         return m.reply("✅ Group description updated!");

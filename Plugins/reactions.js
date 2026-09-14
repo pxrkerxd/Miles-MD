@@ -4,7 +4,10 @@ let commands = [
   "hug",
   "slap",
   "punch",
-  "kick",
+  "dropkick",
+  "spidkick",
+  "rkick",
+  "spiderkick",
   "pat",
   "kiss",
   "dance",
@@ -21,7 +24,19 @@ const SPIDERMAN_REACTIONS = {
     "https://media.tenor.com/grsJv6rF2zwAAAPo/spider-man-punch.mp4",
     "https://media.tenor.com/hIQCuZpKyA8AAAPo/webhead907-spiderman.mp4",
   ],
-  kick: [
+  dropkick: [
+    "https://media.tenor.com/hVLTsc5nlHQAAAPo/kicked-off-spider-man.mp4",
+    "https://media.tenor.com/L1hubOoT-pMAAAPo/spider-man-rider-kick.mp4",
+  ],
+  spidkick: [
+    "https://media.tenor.com/hVLTsc5nlHQAAAPo/kicked-off-spider-man.mp4",
+    "https://media.tenor.com/L1hubOoT-pMAAAPo/spider-man-rider-kick.mp4",
+  ],
+  rkick: [
+    "https://media.tenor.com/hVLTsc5nlHQAAAPo/kicked-off-spider-man.mp4",
+    "https://media.tenor.com/L1hubOoT-pMAAAPo/spider-man-rider-kick.mp4",
+  ],
+  spiderkick: [
     "https://media.tenor.com/hVLTsc5nlHQAAAPo/kicked-off-spider-man.mp4",
     "https://media.tenor.com/L1hubOoT-pMAAAPo/spider-man-rider-kick.mp4",
   ],
@@ -55,7 +70,9 @@ export default {
     "hug",
     "slap",
     "punch",
-    "kick",
+    "dropkick",
+    "spidkick",
+    "rkick",
     "pat",
     "kiss",
     "dance",
@@ -92,12 +109,14 @@ export default {
     const textMap = {
       slap: `🖐️💥 ${senderTag} delivered a comic-book Spider-Slap to ${targetTag}!`,
       punch: `🥊⚡ ${senderTag} hit ${targetTag} with a bio-electric Venom Punch!`,
-      kick: `🥋💫 ${senderTag} dropkicked ${targetTag} across dimensions!`,
+      dropkick: `🥋💫 ${senderTag} dropkicked ${targetTag} across dimensions!`,
+      spidkick: `🥋💫 ${senderTag} dropkicked ${targetTag} across dimensions!`,
+      rkick: `🥋💫 ${senderTag} dropkicked ${targetTag} across dimensions!`,
+      spiderkick: `🥋💫 ${senderTag} dropkicked ${targetTag} across dimensions!`,
       hug: `🫂🕸️ ${senderTag} gave ${targetTag} a warm Spider-Hero hug!`,
       kiss: `💋🕸️ ${senderTag} gave ${targetTag} an iconic upside-down Spider-Man kiss!`,
       dance: `🕺🎶 ${senderTag} is hitting the legendary Spider-Man street dance with ${targetTag}!`,
       webshoot: `🕸️🎯 ${senderTag} shot a thick web right in ${targetTag}'s face!`,
-      bonk: `🔨🐷 ${senderTag} bonked ${targetTag} with a Spider-Ham cartoon mallet!`,
       pat: `🐾✨ ${senderTag} patted ${targetTag} 🤌🏻.`,
     };
 

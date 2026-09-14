@@ -84,16 +84,16 @@ export const serialize = (client, m) => {
   }
 
   if (m.message) {
-    m.type = getContentType(m.message);
     m.message = extractMessageContent(m.message);
-    m.msg = m.message[m.type];
+    m.type = getContentType(m.message);
+    m.msg = m.message?.[m.type];
     m.mentionedJid =
       m.msg?.contextInfo?.mentionedJid ||
       m.message?.extendedTextMessage?.contextInfo?.mentionedJid ||
       m.message?.[m.type]?.contextInfo?.mentionedJid ||
       [];
     m.mentions = m.mentionedJid;
-    m.quoted = m.msg?.contextInfo ? m.msg.contextInfo.quotedMessage : null;
+    m.quoted = m.msg?.contextInfo?.quotedMessage ? extractMessageContent(m.msg.contextInfo.quotedMessage) : null;
 
     if (m.quoted) {
       m.quoted.type = getContentType(m.quoted);
@@ -123,9 +123,11 @@ export const serialize = (client, m) => {
 
   m.body = m.text =
     m.message?.conversation ||
+    m.message?.extendedTextMessage?.text ||
     m.message?.[m.type]?.text ||
     m.message?.[m.type]?.caption ||
     m.message?.[m.type]?.contentText ||
+    m.message?.[m.type]?.selectedDisplayText ||
     "";
 
   m.download = (pathFile) => downloadMediaMessage(m.msg || m.message, pathFile);

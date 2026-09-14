@@ -79,6 +79,11 @@ export default {
         if (!targetJid) return m.reply("Reply to or mention (@) the user to ban!");
         const targetNum = targetJid.split("@")[0].replace(/[^0-9]/g, "");
 
+        if (global.owner.includes(targetNum)) {
+          await doReact("🛑");
+          return m.reply("🕸️ You cannot ban the Bot Creator!");
+        }
+
         await banUser(targetNum);
         await doReact("🔨");
         return SpiderBot.sendMessage(

@@ -42,7 +42,7 @@ export default {
   start: async (
     SpiderBot,
     m,
-    { inputCMD, text, doReact, prefix, isCreator, isMod, isGroup, groupMetadata, groupAdmin }
+    { inputCMD, text, doReact, prefix, isCreator, isMod, isGroup, isGroupAdmin, isBotAdmin, groupMetadata }
   ) => {
     switch (inputCMD) {
       // 1. WHATSAPP POLL MAKER
@@ -86,7 +86,7 @@ export default {
         if (!isGroup) return m.reply("🕸️ This command can only be used in groups!");
         await doReact("🚨");
 
-        if (!groupMetadata) {
+        if (!groupMetadata || !groupMetadata.participants) {
           return m.reply("🕸️ Could not retrieve group admin roster.");
         }
 
@@ -135,7 +135,8 @@ export default {
       // 3. WARNING SYSTEM
       case "warn": {
         if (!isGroup) return m.reply("🕸️ Warnings can only be used in groups!");
-        if (!groupAdmin && !isCreator && !isMod) {
+        if (!isGroupAdmin && !isCreator && !isMod) {
+          await doReact("🚫");
           return m.reply("🚫 *Access Denied:* Only group admins can issue warnings!");
         }
 
@@ -145,6 +146,18 @@ export default {
         }
 
         const targetNum = target.split("@")[0].replace(/[^0-9]/g, "");
+        const botJid = SpiderBot.user?.id ? (SpiderBot.user.id.split(":")[0] + "@s.whatsapp.net") : "";
+        const botNum = botJid.split("@")[0].replace(/[^0-9]/g, "");
+
+        if (targetNum === botNum || target === botJid) {
+          await doReact("🛑");
+          return m.reply("🕸️ You cannot warn the bot!");
+        }
+        if (global.owner.includes(targetNum)) {
+          await doReact("🛑");
+          return m.reply("🕸️ You cannot warn the Bot Creator!");
+        }
+
         const warns = await addWarn(targetNum);
         await doReact("⚠️");
 
@@ -154,12 +167,15 @@ export default {
         warnMsg += `📝 *Reason:* ${text ? text.replace(/@[0-9]+/g, "").trim() || "Rule Violation" : "Rule Violation"}\n\n`;
 
         if (warns >= 3) {
-          warnMsg += `🚨 *MAX WARNINGS REACHED!* @${targetNum} has reached 3 warnings!`;
+          warnMsg += `🚨 *MAX WARNINGS REACHED (3/3)!* @${targetNum} is subject to disciplinary removal!`;
+          if (isBotAdmin) {
+            warnMsg += `\n👢 _Automatically removing user..._`;
+          }
         } else {
-          warnMsg += `_3 warnings will result in disciplinary action!_`;
+          warnMsg += `_3 warnings will result in a kick!_`;
         }
 
-        return SpiderBot.sendMessage(
+        await SpiderBot.sendMessage(
           m.from,
           {
             text: warnMsg,
@@ -167,6 +183,15 @@ export default {
           },
           { quoted: m }
         );
+
+        if (warns >= 3 && isBotAdmin) {
+          try {
+            const finalTarget = target.includes("@") ? target : `${target}@s.whatsapp.net`;
+            await SpiderBot.groupParticipantsUpdate(m.from, [finalTarget], "remove");
+            await resetWarn(targetNum);
+          } catch (e) {}
+        }
+        return;
       }
 
       case "checkwarn":
@@ -175,12 +200,13 @@ export default {
         const targetNum = target.split("@")[0].replace(/[^0-9]/g, "");
         const count = await getWarn(targetNum);
         await doReact("📋");
-        return m.reply(`📋 *Warning Status for @${targetNum}:* [ \`${count} / 3\` warnings ]`);
+        return m.reply(`📋 *Warning Status for @${targetNum}:* [ \`${count} / 3\` warnings ]`, { mentions: [target] });
       }
 
       case "resetwarn": {
         if (!isGroup) return m.reply("🕸️ Warnings can only be managed in groups!");
-        if (!groupAdmin && !isCreator && !isMod) {
+        if (!isGroupAdmin && !isCreator && !isMod) {
+          await doReact("🚫");
           return m.reply("🚫 *Access Denied:* Only group admins can reset warnings!");
         }
 
@@ -196,7 +222,8 @@ export default {
       // 4. AUTOSTICKER TOGGLE
       case "autosticker": {
         if (!isGroup) return m.reply("🕸️ Auto-Sticker is only available in groups!");
-        if (!groupAdmin && !isCreator && !isMod) {
+        if (!isGroupAdmin && !isCreator && !isMod) {
+          await doReact("🚫");
           return m.reply("🚫 *Access Denied:* Only group admins can toggle Auto-Sticker!");
         }
 
@@ -216,7 +243,8 @@ export default {
       // 5. ANTIDELETE TOGGLE
       case "antidelete": {
         if (!isGroup) return m.reply("🕸️ Anti-Delete can only be configured in groups!");
-        if (!groupAdmin && !isCreator && !isMod) {
+        if (!isGroupAdmin && !isCreator && !isMod) {
+          await doReact("🚫");
           return m.reply("🚫 *Access Denied:* Only group admins can toggle Anti-Delete!");
         }
 

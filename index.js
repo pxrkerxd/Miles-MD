@@ -26,21 +26,32 @@ import { checkWelcome } from "./System/MongoDB/MongoDb_Core.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// --- Suppress noisy harmless libsignal decryption errors ---
-const originalConsoleError = console.error;
-console.error = (...args) => {
-  const msg = args.map((a) => (typeof a === "object" && a !== null ? (a.stack || a.message || JSON.stringify(a)) : String(a))).join(" ");
-  if (
+// --- Suppress noisy harmless libsignal decryption errors and session logs ---
+const isNoisyLibsignalLog = (args) => {
+  const msg = args
+    .map((a) => (typeof a === "object" && a !== null ? (a.stack || a.message || JSON.stringify(a)) : String(a)))
+    .join(" ");
+  return (
     msg.includes("Failed to decrypt message with any known session") ||
     msg.includes("MessageCounterError") ||
     msg.includes("Bad MAC") ||
     msg.includes("Key used already or never filled") ||
     msg.includes("Closing session: SessionEntry") ||
+    msg.includes("Closing open session in favor of incoming prekey bundle") ||
     msg.includes("No matching sessions found for message")
-  ) {
-    return;
-  }
+  );
+};
+
+const originalConsoleError = console.error;
+console.error = (...args) => {
+  if (isNoisyLibsignalLog(args)) return;
   originalConsoleError(...args);
+};
+
+const originalConsoleLog = console.log;
+console.log = (...args) => {
+  if (isNoisyLibsignalLog(args)) return;
+  originalConsoleLog(...args);
 };
 
 const app = express();
@@ -200,20 +211,12 @@ async function startSpiderBot() {
     }
   });
 
-  const botStartTime = Math.floor(Date.now() / 1000);
-
   // Handle incoming messages
   SpiderSocket.ev.on("messages.upsert", async (chatUpdate) => {
     try {
       if (chatUpdate.type !== "notify") return;
       for (let rawMessage of chatUpdate.messages) {
         if (!rawMessage.message) continue;
-
-        // Skip historical backlog messages sent before the bot started
-        const msgTimestamp = Number(rawMessage.messageTimestamp || 0);
-        if (msgTimestamp && msgTimestamp < botStartTime - 5) {
-          continue;
-        }
 
         const serialized = serialize(SpiderSocket, rawMessage);
         await Core(SpiderSocket, serialized, commands, chatUpdate);
@@ -276,6 +279,7 @@ const addSystemLog = (type, message) => {
   systemLogs.push(entry);
   if (systemLogs.length > 200) systemLogs.shift();
 };
+global.addSystemLog = addSystemLog;
 
 // --- Web Dashboard API Endpoints ---
 

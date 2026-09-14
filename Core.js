@@ -30,8 +30,20 @@ export default async (SpiderBot, m, commands, chatUpdate) => {
     // Do not process messages sent by bot unless it is an explicit command from the owner
     if (m.isBot) return;
 
-    const prefix = global.prefa || "/";
-    const isCmd = body.startsWith(prefix);
+    // Multi-prefix support: support /, ., !, # or custom prefix
+    const allowedPrefixes = ["/", ".", "!", "#"];
+    if (global.prefa && !allowedPrefixes.includes(global.prefa)) {
+      allowedPrefixes.unshift(global.prefa);
+    }
+    let matchedPrefix = "";
+    for (const p of allowedPrefixes) {
+      if (body.startsWith(p)) {
+        matchedPrefix = p;
+        break;
+      }
+    }
+    const isCmd = Boolean(matchedPrefix);
+    const prefix = matchedPrefix || global.prefa || "/";
 
     if (m.fromMe && !isCmd) return;
 
@@ -73,7 +85,7 @@ export default async (SpiderBot, m, commands, chatUpdate) => {
     if (botMode === "self" && !isCreator) return;
     if (botMode === "private" && isGroup && !isCreator) return;
 
-    // Group Admin checks
+    // Group Admin checks (Accurate verification)
     let groupMetadata = null;
     let groupParticipants = [];
     let isBotAdmin = false;
@@ -88,36 +100,39 @@ export default async (SpiderBot, m, commands, chatUpdate) => {
         const botLid = SpiderBot.user?.lid ? jidNormalizedUser(SpiderBot.user.lid) : "";
         const botNum = botJid.split("@")[0].replace(/[^0-9]/g, "");
 
-        // Set of all identifiers for the bot / owner account (phone, LID, sender, owner array)
-        const myIds = new Set(
-          [
-            botJid,
-            botLid,
-            botNum,
-            sender,
-            senderNumber,
-            m.key?.participant ? jidNormalizedUser(m.key.participant) : "",
-            m.key?.participant ? m.key.participant.split("@")[0].replace(/[^0-9]/g, "") : "",
-            ...(global.owner || []),
-          ].filter(Boolean)
+        // 1. Is the BOT an admin in this group?
+        const botParticipant = groupParticipants.find((p) => {
+          const pJid = jidNormalizedUser(p.id);
+          const pNum = pJid.split("@")[0].replace(/[^0-9]/g, "");
+          return (
+            (botJid && pJid === botJid) ||
+            (botLid && pJid === botLid) ||
+            (botNum && pNum === botNum)
+          );
+        });
+        isBotAdmin = Boolean(
+          botParticipant && (botParticipant.admin === "admin" || botParticipant.admin === "superadmin")
         );
 
-        const isUserAdmin = groupParticipants.some((p) => {
+        // 2. Is the SENDER an admin in this group?
+        const senderJid = jidNormalizedUser(sender || "");
+        const senderParticipant = groupParticipants.find((p) => {
           const pJid = jidNormalizedUser(p.id);
           const pNum = pJid.split("@")[0].replace(/[^0-9]/g, "");
-          const match = myIds.has(pJid) || myIds.has(pNum);
-          return match && (p.admin === "admin" || p.admin === "superadmin");
+          return (
+            (senderJid && pJid === senderJid) ||
+            (senderNumber && pNum === senderNumber)
+          );
         });
+        const isSenderAdmin = Boolean(
+          senderParticipant && (senderParticipant.admin === "admin" || senderParticipant.admin === "superadmin")
+        );
 
-        isBotAdmin = isCreator || isUserAdmin || groupParticipants.some((p) => {
-          const pJid = jidNormalizedUser(p.id);
-          const pNum = pJid.split("@")[0].replace(/[^0-9]/g, "");
-          const isBot = pJid === botJid || pJid === botLid || (botNum && pNum === botNum);
-          return isBot && (p.admin === "admin" || p.admin === "superadmin");
-        });
-
-        isGroupAdmin = isCreator || isUserAdmin;
-      } catch (err) {}
+        // Sender has admin privileges if they are the Bot Creator or a designated group admin
+        isGroupAdmin = isCreator || isSenderAdmin;
+      } catch (err) {
+        console.error(chalk.yellow(`[ GROUP METADATA ERROR ] ${err.message}`));
+      }
     }
 
     // Anti-Link Enforcement
@@ -195,6 +210,7 @@ export default async (SpiderBot, m, commands, chatUpdate) => {
             chalk.gray(` by `) +
             chalk.yellow(`${pushName} (${senderNumber})`)
         );
+        global.addSystemLog?.("cmd", `${prefix}${commandName} by ${pushName} (${senderNumber})`);
 
         try {
           await cmd.start(SpiderBot, m, {
