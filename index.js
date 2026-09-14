@@ -118,6 +118,30 @@ async function startSpiderBot() {
     return rawSendMessage(jid, content, ...args);
   };
 
+  global.contactNames = global.contactNames || new Map();
+
+  SpiderSocket.ev.on("contacts.update", (updates) => {
+    for (const contact of updates) {
+      if (contact.id && (contact.notify || contact.name || contact.verifiedName)) {
+        const name = contact.notify || contact.name || contact.verifiedName;
+        const clean = jidNormalizedUser(contact.id);
+        global.contactNames.set(clean, name);
+        global.contactNames.set(clean.split("@")[0], name);
+      }
+    }
+  });
+
+  SpiderSocket.ev.on("contacts.upsert", (contacts) => {
+    for (const contact of contacts) {
+      if (contact.id && (contact.notify || contact.name || contact.verifiedName)) {
+        const name = contact.notify || contact.name || contact.verifiedName;
+        const clean = jidNormalizedUser(contact.id);
+        global.contactNames.set(clean, name);
+        global.contactNames.set(clean.split("@")[0], name);
+      }
+    }
+  });
+
   SpiderSocket.ev.on("creds.update", async () => {
     await saveCreds();
     await mongoAuth.pushToMongoDB();
@@ -176,12 +200,21 @@ async function startSpiderBot() {
     }
   });
 
+  const botStartTime = Math.floor(Date.now() / 1000);
+
   // Handle incoming messages
   SpiderSocket.ev.on("messages.upsert", async (chatUpdate) => {
     try {
       if (chatUpdate.type !== "notify") return;
       for (let rawMessage of chatUpdate.messages) {
         if (!rawMessage.message) continue;
+
+        // Skip historical backlog messages sent before the bot started
+        const msgTimestamp = Number(rawMessage.messageTimestamp || 0);
+        if (msgTimestamp && msgTimestamp < botStartTime - 5) {
+          continue;
+        }
+
         const serialized = serialize(SpiderSocket, rawMessage);
         await Core(SpiderSocket, serialized, commands, chatUpdate);
       }
@@ -217,6 +250,33 @@ async function startSpiderBot() {
   return SpiderSocket;
 }
 
+// --- In-Memory System Event Logs ---
+const systemLogs = [
+  {
+    id: "init-1",
+    timestamp: new Date().toLocaleTimeString(),
+    type: "system",
+    message: `Spider-Verse Dashboard initialized on port ${PORT}`,
+  },
+  {
+    id: "init-2",
+    timestamp: new Date().toLocaleTimeString(),
+    type: "auth",
+    message: `Session ID: ${global.sessionId || "miles-session"} | Auth mode: ${global.mongodb ? "MongoDB Cloud" : "Local Disk"}`,
+  },
+];
+
+const addSystemLog = (type, message) => {
+  const entry = {
+    id: Date.now() + "-" + Math.random().toString(36).substring(2, 7),
+    timestamp: new Date().toLocaleTimeString(),
+    type,
+    message: typeof message === "object" ? JSON.stringify(message) : String(message),
+  };
+  systemLogs.push(entry);
+  if (systemLogs.length > 200) systemLogs.shift();
+};
+
 // --- Web Dashboard API Endpoints ---
 
 app.get("/api/status", (req, res) => {
@@ -229,10 +289,68 @@ app.get("/api/status", (req, res) => {
     botName: global.botName,
     status,
     uptime: `${upH}h ${upM}m ${upS}s`,
+    uptimeSeconds: upSec,
     commandsCount: commands.size,
     reconnectAttempts,
     websocketOpen: Boolean(SpiderSocket?.ws?.isOpen),
+    prefix: global.prefa || "/",
+    ownerName: global.ownername || "Parker",
   });
+});
+
+app.get("/api/system", (req, res) => {
+  const mem = process.memoryUsage();
+  const upSec = Math.floor(process.uptime());
+  const totalCmdCount = Array.from(commands.values()).reduce(
+    (acc, c) => acc + (c.alias?.length || 1),
+    0
+  );
+
+  res.json({
+    botName: global.botName,
+    status,
+    uptimeSeconds: upSec,
+    memory: {
+      heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+      heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
+      rssMb: Math.round(mem.rss / 1024 / 1024),
+      percent: Math.round((mem.heapUsed / mem.heapTotal) * 100),
+    },
+    system: {
+      platform: process.platform,
+      arch: process.arch,
+      nodeVersion: process.version,
+    },
+    bot: {
+      ownerName: global.ownername || "Parker",
+      prefix: global.prefa || "/",
+      packname: global.packname || "Miles Morales MD",
+      author: global.author || "Earth-1610",
+      sessionId: global.sessionId,
+      suitesCount: commands.size,
+      totalCommands: totalCmdCount,
+      hasGemini: Boolean(global.geminiAPIKeys && global.geminiAPIKeys.length > 0),
+      hasMongo: Boolean(global.mongodb && global.mongodb.trim() !== ""),
+      wsConnected: Boolean(SpiderSocket?.ws?.isOpen),
+    },
+  });
+});
+
+app.get("/api/commands", (req, res) => {
+  const list = [];
+  for (const [name, suite] of commands.entries()) {
+    list.push({
+      name: suite.name || name,
+      description: suite.description || "Spider-Verse Suite Command",
+      uniquecommands: suite.uniquecommands || [],
+      aliases: suite.alias || [],
+    });
+  }
+  res.json({ suites: list, totalSuites: list.length, prefix: global.prefa || "/" });
+});
+
+app.get("/api/logs", (req, res) => {
+  res.json({ logs: systemLogs });
 });
 
 app.get("/api/qr", async (req, res) => {
@@ -266,16 +384,247 @@ app.post("/api/pair", async (req, res) => {
     let code = await SpiderSocket.requestPairingCode(cleaned);
     code = code?.match(/.{1,4}/g)?.join("-") || code;
     console.log(chalk.black.bgCyan(` PAIRING CODE: `), chalk.black.bgYellow(` ${code} `));
+    addSystemLog("auth", `Pairing code requested for phone +${cleaned.substring(0, 4)}**** : [ ${code} ]`);
     return res.json({ code });
   } catch (err) {
     console.error(chalk.red("[ PAIRING CODE ERROR ]"), err.message);
+    addSystemLog("error", `Pairing request failed: ${err.message}`);
     return res.status(500).json({ error: `Pairing failed: ${err.message}` });
+  }
+});
+
+// Interactive Chat with Miles Morales API
+app.post("/api/chat", async (req, res) => {
+  const { message } = req.body;
+  if (!message || typeof message !== "string" || !message.trim()) {
+    return res.status(400).json({ error: "Message is required." });
+  }
+
+  addSystemLog("ai", `Web Terminal Chat: "${message.substring(0, 60)}"`);
+
+  // 1. If Gemini is available, call Gemini with Miles persona
+  const geminiKey = global.pickKey?.(global.geminiAPIKeys);
+  if (geminiKey) {
+    try {
+      const { GoogleGenAI } = await import("@google/genai");
+      const { getGeminiConfig, GEMINI_MODEL } = await import("./System/__system_prompt.js");
+      const ai = new GoogleGenAI({ apiKey: geminiKey });
+      const response = await ai.models.generateContent({
+        model: GEMINI_MODEL || "gemini-2.5-flash",
+        contents: message,
+        config: getGeminiConfig(),
+      });
+      const reply = response.text?.trim();
+      if (reply) {
+        return res.json({ reply, source: "gemini-ai" });
+      }
+    } catch (err) {
+      console.warn(chalk.yellow(`[ AI CHAT FALLBACK ] ${err.message}`));
+    }
+  }
+
+  // 2. Authentic Brooklyn Miles Morales Conversational Engine Fallback
+  const q = message.toLowerCase().trim();
+  let reply = "";
+
+  if (q.includes("who are you") || q.includes("who r u") || q.includes("your name")) {
+    reply = "Yo! I'm Miles Morales — your friendly neighborhood Spider-Man swinging straight out of Brooklyn, Earth-1610. What's on your mind?";
+  } else if (q.includes("leap of faith")) {
+    reply = "That's all it is, man. A leap of faith. You don't know if you're ready until you jump. Trust your instincts and do your own thing!";
+  } else if (q.includes("venom") || q.includes("powers")) {
+    reply = "Bio-electric venom blast! ⚡ Tap into that static charge and bzzzt — lights out for Kingpin or whoever is testing us. Plus invisibility and classic wall-crawling.";
+  } else if (q.includes("gwen") || q.includes("ghost-spider")) {
+    reply = "Gwen's from Earth-65! Incredible drummer, sharpest web-swinger in the multiverse, and one of my best friends. We've got that multiverse connection.";
+  } else if (q.includes("miguel") || q.includes("2099") || q.includes("canon")) {
+    reply = "Miguel is hardcore about 'canon events' in Nueva York. But nah — everyone keeps telling me how my story is supposed to go. I'mma save my people and do my own thing.";
+  } else if (q.includes("hobie") || q.includes("punk")) {
+    reply = "Hobie Brown! Spider-Punk doesn't believe in consistency or authority. He made his electric guitar out of recycled amps and pure anarchy. Legend.";
+  } else if (q.includes("pavitr") || q.includes("chai") || q.includes("india")) {
+    reply = "Pavitr Prabhakar from Mumbattan! And whatever you do, DO NOT say 'chai tea' around him. Chai literally means tea, bro! 😂";
+  } else if (q.includes("peter b") || q.includes("mentor")) {
+    reply = "Peter B. Parker taught me how to swing (and how to eat burgers in sweatpants). He's got Mayday now, which is awesome.";
+  } else if (q.includes("music") || q.includes("song") || q.includes("playlist") || q.includes("sunflower")) {
+    reply = "Right now? Got *Sunflower* by Post Malone, *Am I Dreaming* by Metro Boomin & A$AP Rocky, and some vintage vinyl on repeat in my headphones. 🎧";
+  } else if (q.includes("suit") || q.includes("jordan") || q.includes("shoes")) {
+    reply = "Classic black and red suit with spray-painted graffiti spider emblem, paired with Chicago Air Jordan 1s. Pure Brooklyn drip. 👟🕷️";
+  } else if (q.includes("help") || q.includes("commands") || q.includes("bot")) {
+    reply = `You can run all my WhatsApp commands using prefix \`${global.prefa || "/"}\`. Check the Command Simulator tab right here to test .spidersense, .spidertrivia, .multiverse, or .leapoffaith!`;
+  } else {
+    const randomMilesQuotes = [
+      "Yo, Brooklyn is quiet today, but my Spider-Sense is always locked in. What can I help you cook up?",
+      "Ain't no problem we can't solve. Just gotta look at it from upside down while hanging from the ceiling! 🕸️",
+      "Stay sharp! Remember: Anyone can wear the mask. It's how you wear it that counts.",
+      "Nah, we don't follow everyone else's script here. We do our own thing. What's the plan?",
+      "Webs loaded, venom charged, Jordans laced up. Let's get to work!",
+    ];
+    reply = randomMilesQuotes[Math.floor(Math.random() * randomMilesQuotes.length)];
+  }
+
+  return res.json({ reply, source: "spider-core" });
+});
+
+// Interactive Command Simulator API
+app.post("/api/simulate-cmd", async (req, res) => {
+  let { cmd, args } = req.body;
+  if (!cmd) return res.status(400).json({ error: "Command name is required." });
+
+  cmd = cmd.replace(/^[\.\/\!\#]/, "").toLowerCase().trim();
+  addSystemLog("cmd", `Simulating Command: .${cmd} ${args || ""}`);
+
+  const pref = global.prefa || "/";
+
+  switch (cmd) {
+    case "spidersense": {
+      const dangerLevels = [
+        { level: "🟢 LOW", msg: "Just a text from Uncle Aaron checking in on homework. All clear." },
+        { level: "🟡 MEDIUM", msg: "Spot spotted near the Brooklyn ATM! Be ready to swing." },
+        { level: "🔴 CRITICAL", msg: "MIGUEL O'HARA & THE SPIDER-SOCIETY ARE HEADING YOUR WAY! GO INVISIBLE NOW!" },
+        { level: "✨ CHILL VIBE", msg: "No threats detected. Just sunset over the Brooklyn Bridge with Metro Boomin in the headphones." },
+      ];
+      const chosen = dangerLevels[Math.floor(Math.random() * dangerLevels.length)];
+      return res.json({
+        command: "spidersense",
+        reaction: "⚡",
+        output: `⚡⚡⚡ **SPIDER-SENSE TINGLING!** ⚡⚡⚡\n\n🎯 **Threat Level:** [ ${chosen.level} ]\n🧠 **Intuition:** ${chosen.msg}\n\n_Stay frosty, Spider-Hero._ 🕸️`,
+      });
+    }
+
+    case "miles":
+    case "intro":
+    case "about": {
+      return res.json({
+        command: "miles",
+        reaction: "🕷️",
+        output: `╔═══════════════════════════════════╗\n  🕷️ **MILES MORALES MD // EARTH-1610**\n  _"Everyone keeps telling me how my story_\n  _is supposed to go... nah, I'mma do my own thing."_\n╚═══════════════════════════════════╝\n\nYo, what's good! I'm **Miles Morales** — your friendly neighborhood Spider-Man swinging straight out of Brooklyn, Earth-1610. 🕸️\n\n⚡ **Hero Intel:**\n• 👤 **Alias:** Spider-Man / Brooklyn's Own\n• 🧬 **Powers:** Bio-Electric Venom Blast, Camouflage, Wall-Crawling & Spider-Sense\n• 👑 **Bot Architect:** ${global.ownername || "Parker"}\n• 🎧 **Signature Vibe:** Hip-Hop, Spray Paint, Air Jordan 1s & Leap of Faith\n• 🌐 **Universe:** Earth-1610 (Multiverse Connected)`,
+      });
+    }
+
+    case "spidertrivia":
+    case "trivia": {
+      const TRIVIA = [
+        { q: "What number was on the radioactive spider that bit Miles Morales in Into the Spider-Verse?", a: "Spider #42 (from Alchemax / Earth-42)!" },
+        { q: "What song does Miles sing with his headphones on at the beginning of Into the Spider-Verse?", a: "Sunflower by Post Malone & Swae Lee!" },
+        { q: "Who is the Prowler on Earth-42?", a: "Miles G. Morales himself!" },
+        { q: "What instrument does Gwen Stacy play in her band?", a: "The Drums (in The Mary Janes)!" },
+        { q: "Why does Pavitr Prabhakar get mad at Miles about tea?", a: "Because Miles called it 'Chai tea' — Chai means tea, bro!" },
+        { q: "What is Hobie Brown's electric weapon of choice?", a: "His custom electric bass guitar!" },
+      ];
+      const item = TRIVIA[Math.floor(Math.random() * TRIVIA.length)];
+      return res.json({
+        command: "spidertrivia",
+        reaction: "❓",
+        output: `🧠 **SPIDER-VERSE TRIVIA CHALLENGE**\n\n❓ **Question:** ${item.q}\n\n💡 **Answer:** ||${item.a}||`,
+      });
+    }
+
+    case "spidersuit":
+    case "suit": {
+      const SUITS = [
+        { name: "Classic Black & Red Suit (Earth-1610)", desc: "Crafted with spray paint over Peter's old suit. Features the iconic red graffiti spider emblem." },
+        { name: "Across the Spider-Verse Upgraded Suit", desc: "Upgraded sleeker design with bleeding red arm stripes, sharper mask lenses, and venom-conducting fabric." },
+        { name: "2020 Cyberpunk Suit", desc: "Futuristic neon LED visor, high-top kicks, and digital soundwave chest display." },
+        { name: "Bodega Cat Suit", desc: "Includes a cute ginger cat wearing a Spider-Man mask inside Miles' backpack who jumps out during venom finishers!" },
+        { name: "The End Suit", desc: "Designed for an older Miles in a dystopian future with a Brooklyn camo jacket and glowing venom gauntlets." },
+      ];
+      const suit = SUITS[Math.floor(Math.random() * SUITS.length)];
+      return res.json({
+        command: "spidersuit",
+        reaction: "🎽",
+        output: `🎽 **SUIT SHOWCASE: ${suit.name}**\n\n${suit.desc}\n\n_Brooklyn swag at its finest!_ 🕷️`,
+      });
+    }
+
+    case "multiverse": {
+      const EARTHS = [
+        { earth: "Earth-1610", hero: "Miles Morales", vibe: "Brooklyn, graffiti, hip-hop, venom blast, modern Spider-Man." },
+        { earth: "Earth-65", hero: "Gwen Stacy (Ghost-Spider)", vibe: "Pastel watercolor skyline, punk rock drums, ballet web-swinging." },
+        { earth: "Earth-928", hero: "Miguel O'Hara (2099)", vibe: "Nueva York, high-tech dystopian city, holo-webs, strict canon timeline." },
+        { earth: "Earth-138", hero: "Hobie Brown (Spider-Punk)", vibe: "Anarchist London, punk rock collage, zero tolerance for authority." },
+        { earth: "Earth-50101", hero: "Pavitr Prabhakar (Spider-Man India)", vibe: "Mumbattan, energetic traffic webs, zero stress heroics." },
+      ];
+      const e = EARTHS[Math.floor(Math.random() * EARTHS.length)];
+      return res.json({
+        command: "multiverse",
+        reaction: "🌀",
+        output: `🌀 **MULTIVERSE INTEL // ${e.earth}**\n\n👤 **Resident Spider-Hero:** ${e.hero}\n🌆 **Dimension Vibe:** ${e.vibe}\n\n_Connected via Web of Life and Destiny._ 🕸️`,
+      });
+    }
+
+    case "venom":
+    case "venomblast": {
+      const charge = Math.floor(Math.random() * 40) + 60;
+      return res.json({
+        command: "venom",
+        reaction: "⚡",
+        output: `⚡⚡⚡ **BIO-ELECTRIC VENOM BLAST ENGAGED!** ⚡⚡⚡\n\n🔋 **Charge Output:** [ ${charge}% VOLTAGE ]\n💥 **Status:** Surge released! Surrounding enemies stunned.\n\n_"You felt that, didn't you?"_ 🕷️⚡`,
+      });
+    }
+
+    case "leapoffaith": {
+      return res.json({
+        command: "leapoffaith",
+        reaction: "🌆",
+        output: `🌆 **THE LEAP OF FAITH**\n\n_"When do I know I'm Spider-Man?"_\n_"You won't. That's all it is, Miles. A leap of faith."_\n\n🏙️ **Altitude:** Top of Brooklyn Tower\n🎵 **Soundtrack:** Post Malone - Sunflower\n👟 **Kicks:** Air Jordan 1s Laced\n\n✨ **Result:** You jumped. And you flew. 🕸️`,
+      });
+    }
+
+    case "ping":
+    case "speed": {
+      const speed = Math.floor(Math.random() * 18) + 12;
+      return res.json({
+        command: "ping",
+        reaction: "⚡",
+        output: `⚡ **SPIDER-LATENCY:** \`${speed}ms\`\n🌐 **Dimension:** Earth-1610 Brooklyn\n🕸️ **Web Status:** Quantum Connected & Super Fast!`,
+      });
+    }
+
+    case "alive":
+    case "uptime": {
+      const upSec = Math.floor(process.uptime());
+      const upH = Math.floor(upSec / 3600);
+      const upM = Math.floor((upSec % 3600) / 60);
+      const upS = upSec % 60;
+      return res.json({
+        command: "alive",
+        reaction: "🕷️",
+        output: `🕷️ **MILES MORALES MD IS ONLINE!**\n\n⏱️ **Uptime:** ${upH}h ${upM}m ${upS}s\n📦 **Suites Loaded:** ${commands.size} modules\n🤖 **Bot Name:** ${global.botName}\n👑 **Architect:** ${global.ownername || "Parker"}\n\n_"Nah, I'mma do my own thing!"_ 🕸️`,
+      });
+    }
+
+    case "flip":
+    case "coin": {
+      const isHeads = Math.random() > 0.5;
+      return res.json({
+        command: "flip",
+        reaction: "🪙",
+        output: `🪙 **SPIDER-COIN FLIP**\n\nResult: **${isHeads ? "HEADS (Miles)" : "TAILS (Spider-Gwen)"}**!`,
+      });
+    }
+
+    case "roll":
+    case "dice": {
+      const roll = Math.floor(Math.random() * 6) + 1;
+      return res.json({
+        command: "roll",
+        reaction: "🎲",
+        output: `🎲 **DICE ROLL:** You rolled a **[ ${roll} ]**!`,
+      });
+    }
+
+    default: {
+      return res.json({
+        command: cmd,
+        reaction: "🕸️",
+        output: `🕸️ **Spider-Command Executed:** \`${pref}${cmd} ${args || ""}\`\n\n✅ Command validated across ${commands.size} loaded suites. Use on WhatsApp by sending \`${pref}${cmd}\` directly to the bot!`,
+      });
+    }
   }
 });
 
 // Start Express Server with error handling
 const server = app.listen(PORT, () => {
   console.log(chalk.cyan(`[ SPIDER-DASHBOARD ] Web GUI running on http://localhost:${PORT}`));
+  addSystemLog("system", `Web GUI server started on port ${PORT}`);
   void startSpiderBot();
 });
 

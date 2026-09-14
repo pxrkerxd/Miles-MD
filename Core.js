@@ -4,6 +4,7 @@ import chalk from "chalk";
 import axios from "axios";
 import { GoogleGenAI } from "@google/genai";
 import { getGeminiConfig, GEMINI_MODEL } from "./System/__system_prompt.js";
+import { jidNormalizedUser } from "@whiskeysockets/baileys";
 import {
   checkBan,
   checkMod,
@@ -22,10 +23,18 @@ export default async (SpiderBot, m, commands, chatUpdate) => {
   try {
     if (!m) return;
     let { from, sender, isGroup } = m;
+    if (!from || from === "status@broadcast" || from.endsWith("@broadcast")) return;
+
     let body = (m.text || m.body || "").trim();
+
+    // Do not process messages sent by bot unless it is an explicit command from the owner
+    if (m.isBot) return;
 
     const prefix = global.prefa || "/";
     const isCmd = body.startsWith(prefix);
+
+    if (m.fromMe && !isCmd) return;
+
     const commandName = isCmd
       ? body.slice(prefix.length).trim().split(/\s+/)[0].toLowerCase()
       : "";
@@ -39,6 +48,13 @@ export default async (SpiderBot, m, commands, chatUpdate) => {
     // Clean sender ID
     const senderNumber = sender ? sender.split("@")[0].replace(/[^0-9]/g, "") : "";
     const isCreator = global.owner.includes(senderNumber) || m.fromMe;
+
+    // Cache contact pushName
+    global.contactNames = global.contactNames || new Map();
+    if (senderNumber && pushName && pushName !== "Spider-Friend") {
+      global.contactNames.set(senderNumber, pushName);
+      if (sender) global.contactNames.set(sender, pushName);
+    }
     const isMod = isCreator || (await checkMod(senderNumber));
 
     // Ban checks
@@ -67,14 +83,40 @@ export default async (SpiderBot, m, commands, chatUpdate) => {
       try {
         groupMetadata = await SpiderBot.groupMetadata(from);
         groupParticipants = groupMetadata.participants || [];
-        const botJid = SpiderBot.user?.id ? SpiderBot.user.id.split(":")[0] + "@s.whatsapp.net" : "";
-        
-        isBotAdmin = groupParticipants.some(
-          (p) => (p.id === botJid || p.id === SpiderBot.user?.id) && (p.admin === "admin" || p.admin === "superadmin")
+
+        const botJid = SpiderBot.user?.id ? jidNormalizedUser(SpiderBot.user.id) : "";
+        const botLid = SpiderBot.user?.lid ? jidNormalizedUser(SpiderBot.user.lid) : "";
+        const botNum = botJid.split("@")[0].replace(/[^0-9]/g, "");
+
+        // Set of all identifiers for the bot / owner account (phone, LID, sender, owner array)
+        const myIds = new Set(
+          [
+            botJid,
+            botLid,
+            botNum,
+            sender,
+            senderNumber,
+            m.key?.participant ? jidNormalizedUser(m.key.participant) : "",
+            m.key?.participant ? m.key.participant.split("@")[0].replace(/[^0-9]/g, "") : "",
+            ...(global.owner || []),
+          ].filter(Boolean)
         );
-        isGroupAdmin = groupParticipants.some(
-          (p) => p.id === sender && (p.admin === "admin" || p.admin === "superadmin")
-        );
+
+        const isUserAdmin = groupParticipants.some((p) => {
+          const pJid = jidNormalizedUser(p.id);
+          const pNum = pJid.split("@")[0].replace(/[^0-9]/g, "");
+          const match = myIds.has(pJid) || myIds.has(pNum);
+          return match && (p.admin === "admin" || p.admin === "superadmin");
+        });
+
+        isBotAdmin = isCreator || isUserAdmin || groupParticipants.some((p) => {
+          const pJid = jidNormalizedUser(p.id);
+          const pNum = pJid.split("@")[0].replace(/[^0-9]/g, "");
+          const isBot = pJid === botJid || pJid === botLid || (botNum && pNum === botNum);
+          return isBot && (p.admin === "admin" || p.admin === "superadmin");
+        });
+
+        isGroupAdmin = isCreator || isUserAdmin;
       } catch (err) {}
     }
 
@@ -198,6 +240,7 @@ export default async (SpiderBot, m, commands, chatUpdate) => {
     const groupChatActive = isGroup && (await checkGroupChatbot(from));
 
     const shouldChat =
+      !m.fromMe &&
       !isCmd &&
       body.trim().length > 1 &&
       ((isPm && pmChatActive) || (isGroup && isBotMentioned) || (isGroup && groupChatActive && isBotMentioned));

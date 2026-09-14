@@ -1,0 +1,1324 @@
+/* ==========================================================================
+   MILES MORALES MD // SPIDER-VERSE DASHBOARD INTERACTIVE ENGINE (app.js)
+   ========================================================================== */
+
+// --- Audio Synthesizer (Web Audio API) ---
+let audioCtx = null;
+let soundEnabled = true;
+
+function initAudio() {
+  if (!audioCtx) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+      audioCtx = new AudioContext();
+    }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
+function toggleAudio() {
+  soundEnabled = !soundEnabled;
+  const btn = document.getElementById('audioToggleBtn');
+  const waves = document.getElementById('audioWaves');
+  const text = btn.querySelector('.btn-text');
+
+  if (soundEnabled) {
+    btn.classList.add('active');
+    text.innerText = 'SFX: ON';
+    initAudio();
+    playThwipSound();
+    showToast('🔊 Spider-Verse SFX Enabled!');
+  } else {
+    btn.classList.remove('active');
+    text.innerText = 'SFX: MUTED';
+    showToast('🔇 Audio Muted');
+  }
+}
+
+// Procedural Sound Effects
+function playThwipSound() {
+  if (!soundEnabled) return;
+  try {
+    initAudio();
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    const filter = audioCtx.createBiquadFilter();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1800, audioCtx.currentTime + 0.08);
+
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1200, audioCtx.currentTime);
+    filter.Q.setValueAtTime(3, audioCtx.currentTime);
+
+    gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.12);
+  } catch (e) {}
+}
+
+function playVenomZapSound() {
+  if (!soundEnabled) return;
+  try {
+    initAudio();
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+    osc.frequency.linearRampToValueAtTime(600, audioCtx.currentTime + 0.15);
+    osc.frequency.linearRampToValueAtTime(80, audioCtx.currentTime + 0.35);
+
+    gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.35);
+  } catch (e) {}
+}
+
+function playGlitchSound() {
+  if (!soundEnabled) return;
+  try {
+    initAudio();
+    if (!audioCtx) return;
+    const notes = [523.25, 659.25, 783.99, 1046.50];
+    notes.forEach((freq, idx) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime + idx * 0.04);
+
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime + idx * 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + idx * 0.04 + 0.08);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start(audioCtx.currentTime + idx * 0.04);
+      osc.stop(audioCtx.currentTime + idx * 0.04 + 0.08);
+    });
+  } catch (e) {}
+}
+
+function playClickSound() {
+  if (!soundEnabled) return;
+  try {
+    initAudio();
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.03);
+
+    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.03);
+  } catch (e) {}
+}
+
+// --- Comic Popups & Toast Notifications ---
+const COMIC_WORDS = ['THWIP!', 'BZZZT!', "WHAT'S UP DANGER!", 'BOOM!', 'LEAP OF FAITH!', 'CANON EVENT!', 'BROOKLYN!', 'SPIDER-SENSE!'];
+
+function spawnComicBadge(text, x, y) {
+  const container = document.getElementById('comicPopups');
+  if (!container) return;
+  const badge = document.createElement('div');
+  badge.className = 'comic-badge';
+  badge.innerText = text || COMIC_WORDS[Math.floor(Math.random() * COMIC_WORDS.length)];
+  
+  const posX = x !== undefined ? x : window.innerWidth / 2;
+  const posY = y !== undefined ? y : window.innerHeight / 2;
+  const rot = (Math.random() * 24 - 12).toFixed(1) + 'deg';
+  
+  badge.style.left = `${posX}px`;
+  badge.style.top = `${posY}px`;
+  badge.style.setProperty('--rot', rot);
+
+  container.appendChild(badge);
+  setTimeout(() => { badge.remove(); }, 1200);
+}
+
+function showToast(message) {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML = `<span>🕷️</span> <span>${message}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => { toast.remove(); }, 3500);
+}
+
+// --- Interactive Spider Canvas Background ---
+const canvas = document.getElementById('spiderCanvas');
+const ctx = canvas ? canvas.getContext('2d') : null;
+let width = window.innerWidth;
+let height = window.innerHeight;
+let mouse = { x: -1000, y: -1000, active: false };
+let particles = [];
+let shockwaveRadius = 0;
+let shockwaveActive = false;
+let shockwaveCenter = { x: 0, y: 0 };
+
+function resizeCanvas() {
+  if (!canvas) return;
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+window.addEventListener('mousemove', (e) => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+  mouse.active = true;
+});
+
+window.addEventListener('mouseout', () => {
+  mouse.active = false;
+});
+
+// Initialize Floating Particles
+for (let i = 0; i < 40; i++) {
+  particles.push({
+    x: Math.random() * width,
+    y: Math.random() * height,
+    vx: (Math.random() - 0.5) * 0.8,
+    vy: (Math.random() - 0.5) * 0.8,
+    radius: Math.random() * 2 + 1,
+    color: Math.random() > 0.5 ? 'rgba(0, 240, 255, 0.4)' : 'rgba(255, 0, 85, 0.4)',
+  });
+}
+
+function renderCanvas() {
+  if (!ctx) return;
+  ctx.clearRect(0, 0, width, height);
+
+  // Update & Draw Floating Particles
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+
+    if (p.x < 0) p.x = width;
+    if (p.x > width) p.x = 0;
+    if (p.y < 0) p.y = height;
+    if (p.y > height) p.y = 0;
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.fill();
+
+    // Draw Web Strands between close particles
+    for (let j = i + 1; j < particles.length; j++) {
+      const p2 = particles[j];
+      const dx = p.x - p2.x;
+      const dy = p.y - p2.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < 100) {
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.08 * (1 - dist / 100)})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    }
+
+    // Connect to Mouse Cursor
+    if (mouse.active) {
+      const dx = p.x - mouse.x;
+      const dy = p.y - mouse.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < 160) {
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(mouse.x, mouse.y);
+        ctx.strokeStyle = `rgba(0, 240, 255, ${0.25 * (1 - dist / 160)})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Shockwave Animation
+  if (shockwaveActive) {
+    ctx.beginPath();
+    ctx.arc(shockwaveCenter.x, shockwaveCenter.y, shockwaveRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255, 0, 85, ${1 - shockwaveRadius / 500})`;
+    ctx.lineWidth = 6;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(shockwaveCenter.x, shockwaveCenter.y, shockwaveRadius * 0.8, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(0, 240, 255, ${0.8 - shockwaveRadius / 500})`;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    shockwaveRadius += 16;
+    if (shockwaveRadius > 500) {
+      shockwaveActive = false;
+    }
+  }
+
+  requestAnimationFrame(renderCanvas);
+}
+renderCanvas();
+
+// --- Venom Blast Trigger ---
+function triggerVenomBlast() {
+  playVenomZapSound();
+  const shockLayer = document.getElementById('shockwaveLayer');
+  if (shockLayer) {
+    shockLayer.classList.remove('shockwave-active');
+    void shockLayer.offsetWidth;
+    shockLayer.classList.add('shockwave-active');
+  }
+
+  shockwaveCenter = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+  shockwaveRadius = 10;
+  shockwaveActive = true;
+
+  spawnComicBadge('⚡ BZZZT! VENOM BLAST ⚡');
+  showToast('⚡ Bio-Electric Venom Blast Discharged!');
+}
+
+// --- Dimension Theme Switcher ---
+const THEME_DATA = {
+  miles: {
+    badge: 'EARTH-1610 // BROOKLYN NY',
+    title: 'MILES MORALES MD',
+    tagline: '"Anyone can wear the mask. It\'s how you wear it that counts."',
+  },
+  gwen: {
+    badge: 'EARTH-65 // MARY JANES DRUMMER',
+    title: 'GHOST-SPIDER GWEN',
+    tagline: '"I\'m in a band. I swing through watercolors. Let\'s make noise."',
+  },
+  miguel: {
+    badge: 'EARTH-928 // NUEVA YORK 2099',
+    title: 'SPIDER-MAN 2099',
+    tagline: '"The canon timeline must be preserved across all dimensions."',
+  },
+  punk: {
+    badge: 'EARTH-138 // LONDON ANARCHY',
+    title: 'SPIDER-PUNK HOBIE',
+    tagline: '"I don\'t believe in consistency. Down with uncool rules."',
+  },
+  pavitr: {
+    badge: 'EARTH-50101 // MUMBATTAN',
+    title: 'SPIDER-MAN INDIA',
+    tagline: '"Chai means tea, bro! Being Spider-Man is so easy."',
+  },
+};
+
+function changeTheme(themeKey) {
+  document.documentElement.setAttribute('data-theme', themeKey);
+  const data = THEME_DATA[themeKey] || THEME_DATA.miles;
+
+  const badgeEl = document.querySelector('#dimensionBadge .dim-text');
+  if (badgeEl) badgeEl.innerText = data.badge;
+
+  const titleEl = document.getElementById('heroTitle');
+  if (titleEl) {
+    titleEl.innerText = data.title;
+    titleEl.setAttribute('data-text', data.title);
+  }
+
+  const taglineEl = document.getElementById('heroTagline');
+  if (taglineEl) taglineEl.innerText = data.tagline;
+
+  playGlitchSound();
+  spawnComicBadge('🌀 ' + themeKey.toUpperCase() + ' ACTIVATED');
+  showToast(`Switched universe to ${data.badge}`);
+}
+
+// --- Main Tab Switching ---
+function switchMainTab(tabId) {
+  playClickSound();
+  document.querySelectorAll('.nav-tab').forEach((tab) => tab.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach((pane) => pane.classList.remove('active'));
+
+  const activeTabBtn = document.getElementById(`tab-${tabId}`);
+  const activePane = document.getElementById(`pane-${tabId}`);
+
+  if (activeTabBtn) activeTabBtn.classList.add('active');
+  if (activePane) activePane.classList.add('active');
+
+  if (tabId === 'multiverse') {
+    renderMultiverseDeck();
+  } else if (tabId === 'simulator') {
+    fetchCommandsCatalog();
+  } else if (tabId === 'game') {
+    initGameCanvas();
+  }
+}
+
+// --- Auth Sub-Nav (Phone Code vs QR) ---
+function switchAuthMode(mode) {
+  playClickSound();
+  const subPairBtn = document.getElementById('subPairBtn');
+  const subQrBtn = document.getElementById('subQrBtn');
+  const authCode = document.getElementById('authModeCode');
+  const authQr = document.getElementById('authModeQr');
+
+  if (mode === 'code') {
+    subPairBtn.classList.add('active');
+    subQrBtn.classList.remove('active');
+    authCode.classList.remove('hidden');
+    authQr.classList.add('hidden');
+  } else {
+    subQrBtn.classList.add('active');
+    subPairBtn.classList.remove('active');
+    authQr.classList.remove('hidden');
+    authCode.classList.add('hidden');
+    fetchQR(true);
+  }
+}
+
+function setCountryCode(code) {
+  playClickSound();
+  const input = document.getElementById('countryCodeInput');
+  if (input) input.value = code;
+}
+
+// --- Phone Pairing Code Submission ---
+let currentPairCode = '';
+
+async function handlePairSubmit(e) {
+  e.preventDefault();
+  playThwipSound();
+
+  const country = document.getElementById('countryCodeInput').value.trim();
+  const number = document.getElementById('phoneMainInput').value.trim();
+  const fullPhone = country + number.replace(/[^0-9]/g, '');
+
+  const btn = document.getElementById('submitPairBtn');
+  const codeBox = document.getElementById('codeBox');
+  const codeDisplay = document.getElementById('codeDisplay');
+
+  btn.disabled = true;
+  btn.querySelector('.btn-content').innerHTML = '<span class="spider-spinner" style="width:16px;height:16px;border-width:2px;"></span> GENERATING CODE...';
+
+  try {
+    const res = await fetch('/api/pair', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: fullPhone }),
+    });
+    const data = await res.json();
+
+    if (data.code) {
+      currentPairCode = data.code;
+      codeDisplay.innerText = data.code;
+      codeBox.classList.remove('hidden');
+      playGlitchSound();
+      spawnComicBadge('⚡ CODE READY!');
+      showToast('Pairing code generated! Link on WhatsApp now.');
+    } else {
+      alert(data.error || 'Failed to request pairing code. Please try again.');
+    }
+  } catch (err) {
+    alert('Pairing request error: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.querySelector('.btn-content').innerHTML = '<span class="btn-spark">⚡</span> GENERATE 8-DIGIT CODE';
+  }
+}
+
+function copyPairCode() {
+  if (!currentPairCode) return;
+  navigator.clipboard.writeText(currentPairCode);
+  playClickSound();
+  const copyBtn = document.getElementById('copyBtn');
+  copyBtn.innerText = '✅ CODE COPIED!';
+  showToast('Copied code to clipboard!');
+  setTimeout(() => {
+    copyBtn.innerText = '📋 COPY CODE TO CLIPBOARD';
+  }, 2500);
+}
+
+// --- Holographic QR Code Engine ---
+let qrCountdown = 4;
+let qrTimerInterval = null;
+
+async function fetchQR(force = false) {
+  try {
+    const res = await fetch('/api/qr');
+    const data = await res.json();
+    const img = document.getElementById('qrImage');
+    const placeholder = document.getElementById('qrPlaceholder');
+    const label = document.getElementById('qrStatusLabel');
+
+    if (data.status === 'connected') {
+      label.innerText = '✅ Bot is already connected to WhatsApp!';
+      img.classList.add('hidden');
+      placeholder.classList.remove('hidden');
+    } else if (data.status === 'qr' && data.qr) {
+      img.src = data.qr;
+      img.classList.remove('hidden');
+      placeholder.classList.add('hidden');
+      if (force) playGlitchSound();
+    } else {
+      img.classList.add('hidden');
+      placeholder.classList.remove('hidden');
+      label.innerText = 'Waiting for QR stream... Check back in 3s.';
+    }
+  } catch (err) {}
+}
+
+function startQrTimer() {
+  qrTimerInterval = setInterval(() => {
+    const qrPane = document.getElementById('authModeQr');
+    if (qrPane && !qrPane.classList.contains('hidden')) {
+      qrCountdown--;
+      const timerEl = document.getElementById('qrTimer');
+      if (timerEl) timerEl.innerText = qrCountdown + 's';
+      if (qrCountdown <= 0) {
+        qrCountdown = 4;
+        fetchQR();
+      }
+    }
+  }, 1000);
+}
+startQrTimer();
+
+// --- Live Telemetry & Bot Status Stream ---
+async function fetchStatusAndTelemetry() {
+  try {
+    const res = await fetch('/api/system');
+    const data = await res.json();
+
+    // Global Status Dot
+    const dot = document.getElementById('statusDot');
+    const text = document.getElementById('statusText');
+    const globalPill = document.getElementById('globalStatusPill');
+
+    if (data.status === 'open' || data.bot?.wsConnected) {
+      dot.className = 'status-dot online';
+      text.innerText = 'ONLINE // CONNECTED';
+    } else if (data.status === 'qr') {
+      dot.className = 'status-dot waiting';
+      text.innerText = 'WAITING FOR SCAN';
+    } else if (data.status === 'connecting') {
+      dot.className = 'status-dot pulse';
+      text.innerText = 'CONNECTING...';
+    } else {
+      dot.className = 'status-dot';
+      text.innerText = (data.status || 'OFFLINE').toUpperCase();
+    }
+
+    // Top Bar Telemetry
+    const upSec = data.uptimeSeconds || 0;
+    const upH = Math.floor(upSec / 3600);
+    const upM = Math.floor((upSec % 3600) / 60);
+    const upS = upSec % 60;
+    document.getElementById('uptimeVal').innerText = `${upH}h ${upM}m ${upS}s`;
+    document.getElementById('suitesVal').innerText = `${data.bot?.suitesCount || 0} suites`;
+    document.getElementById('prefixVal').innerText = data.bot?.prefix || '/';
+
+    // Latency simulation / live
+    const lat = Math.floor(Math.random() * 10) + 12;
+    document.getElementById('latencyVal').innerText = `${lat}ms`;
+
+    // Tab 6 Metrics
+    if (data.memory) {
+      document.getElementById('heapUsageVal').innerText = `${data.memory.heapUsedMb} / ${data.memory.heapTotalMb} MB`;
+      document.getElementById('heapProgressFill').style.width = `${Math.min(data.memory.percent, 100)}%`;
+    }
+    document.getElementById('uptimeFullVal').innerText = `${upH}h ${upM}m ${upS}s`;
+    document.getElementById('wsStatusVal').innerText = data.bot?.wsConnected ? 'ONLINE' : 'DISCONNECTED';
+    document.getElementById('botAuthSubVal').innerText = data.bot?.hasMongo ? 'MongoDB Cloud Auth' : 'Local Auth (Session)';
+    document.getElementById('totalCmdsCountVal').innerText = `${data.bot?.totalCommands || 105} Commands`;
+    document.getElementById('geminiStatusVal').innerText = data.bot?.hasGemini ? 'Gemini AI: Enabled' : 'Neural Core: Active';
+
+  } catch (err) {}
+}
+setInterval(fetchStatusAndTelemetry, 3000);
+fetchStatusAndTelemetry();
+
+// --- Live Server Console Logs Stream ---
+let currentLogFilter = 'all';
+let isLogPaused = false;
+
+async function fetchServerLogs() {
+  if (isLogPaused) return;
+  try {
+    const res = await fetch('/api/logs');
+    const data = await res.json();
+    const consoleBody = document.getElementById('consoleBody');
+    if (!consoleBody || !data.logs) return;
+
+    const filtered = data.logs.filter((log) => {
+      if (currentLogFilter === 'all') return true;
+      return log.type === currentLogFilter;
+    });
+
+    consoleBody.innerHTML = filtered
+      .map(
+        (log) =>
+          `<div class="log-line ${log.type}">[${log.timestamp}] [${log.type.toUpperCase()}] ${escapeHtml(log.message)}</div>`
+      )
+      .join('');
+
+    consoleBody.scrollTop = consoleBody.scrollHeight;
+  } catch (e) {}
+}
+
+function setLogFilter(filter) {
+  playClickSound();
+  currentLogFilter = filter;
+  document.querySelectorAll('.c-filter').forEach((btn) => btn.classList.remove('active'));
+  event.target.classList.add('active');
+  fetchServerLogs();
+}
+
+function togglePauseLogs() {
+  playClickSound();
+  isLogPaused = !isLogPaused;
+  const btn = document.getElementById('pauseLogBtn');
+  btn.innerText = isLogPaused ? '▶️ Resume' : '⏸️ Pause';
+}
+
+function clearLogsView() {
+  playClickSound();
+  const consoleBody = document.getElementById('consoleBody');
+  if (consoleBody) consoleBody.innerHTML = '<div class="log-line system">[SYSTEM] Console logs cleared.</div>';
+}
+
+function downloadLogs() {
+  playClickSound();
+  const consoleBody = document.getElementById('consoleBody');
+  if (!consoleBody) return;
+  const text = consoleBody.innerText;
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `spiderbot-logs-${Date.now()}.txt`;
+  a.click();
+}
+
+setInterval(fetchServerLogs, 2500);
+
+// --- Venom AI Chat Terminal ---
+async function handleChatSubmit(e) {
+  e.preventDefault();
+  const input = document.getElementById('chatInput');
+  const message = input.value.trim();
+  if (!message) return;
+
+  playThwipSound();
+  appendChatMessage('user', message);
+  input.value = '';
+
+  const typing = document.getElementById('typingIndicator');
+  typing.classList.remove('hidden');
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    });
+    const data = await res.json();
+    typing.classList.add('hidden');
+
+    if (data.reply) {
+      appendChatMessage('miles', data.reply);
+      playGlitchSound();
+    } else {
+      appendChatMessage('miles', 'Yo, something glitched in the multiverse feed. Try again in a second!');
+    }
+  } catch (err) {
+    typing.classList.add('hidden');
+    appendChatMessage('miles', '⚠️ Multiverse connection error: ' + err.message);
+  }
+}
+
+function appendChatMessage(sender, text) {
+  const container = document.getElementById('chatMessages');
+  if (!container) return;
+
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `msg ${sender === 'user' ? 'user-msg' : 'miles-msg'}`;
+
+  const senderName = sender === 'user' ? '👤 YOU' : '🕷️ MILES MORALES';
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  msgDiv.innerHTML = `
+    <div class="msg-sender">${senderName}</div>
+    <div class="msg-bubble">${escapeHtml(text)}</div>
+    <div class="msg-time">${time}</div>
+  `;
+
+  container.appendChild(msgDiv);
+  container.scrollTop = container.scrollHeight;
+}
+
+function sendQuickPrompt(text) {
+  playClickSound();
+  const input = document.getElementById('chatInput');
+  if (input) {
+    input.value = text;
+    const form = input.closest('form');
+    if (form) form.dispatchEvent(new Event('submit', { cancelable: true }));
+  }
+}
+
+function clearChatHistory() {
+  playClickSound();
+  const container = document.getElementById('chatMessages');
+  if (container) {
+    container.innerHTML = `
+      <div class="msg miles-msg">
+        <div class="msg-sender">🕷️ MILES MORALES</div>
+        <div class="msg-bubble">Fresh chat started! What's good?</div>
+        <div class="msg-time">Just now</div>
+      </div>
+    `;
+  }
+}
+
+// --- Command Catalog & Terminal Simulator ---
+let allCommandsData = [];
+let activeCmdCategory = 'all';
+
+async function fetchCommandsCatalog() {
+  try {
+    const res = await fetch('/api/commands');
+    const data = await res.json();
+    if (data.suites) {
+      allCommandsData = data.suites;
+      renderCommandsList();
+    }
+  } catch (e) {}
+}
+
+function setCmdCategory(cat) {
+  playClickSound();
+  activeCmdCategory = cat;
+  document.querySelectorAll('.filter-tag').forEach((t) => t.classList.remove('active'));
+  event.target.classList.add('active');
+  renderCommandsList();
+}
+
+function filterCommands(query) {
+  renderCommandsList(query);
+}
+
+function renderCommandsList(searchQuery = '') {
+  const container = document.getElementById('cmdListContainer');
+  if (!container) return;
+
+  const q = searchQuery.toLowerCase().trim();
+
+  const filtered = allCommandsData.filter((suite) => {
+    // Category match
+    let matchesCat = true;
+    if (activeCmdCategory === 'spiderverse') matchesCat = suite.name.includes('spider');
+    else if (activeCmdCategory === 'ai') matchesCat = suite.name.includes('ai');
+    else if (activeCmdCategory === 'downloader') matchesCat = suite.name.includes('download') || suite.name.includes('youtube');
+    else if (activeCmdCategory === 'group') matchesCat = suite.name.includes('group') || suite.name.includes('moderator');
+    else if (activeCmdCategory === 'fun') matchesCat = suite.name.includes('fun') || suite.name.includes('rpg') || suite.name.includes('reaction');
+    else if (activeCmdCategory === 'system') matchesCat = suite.name.includes('system') || suite.name.includes('tool');
+
+    if (!matchesCat) return false;
+
+    // Search query match
+    if (q) {
+      const matchName = suite.name.toLowerCase().includes(q);
+      const matchDesc = suite.description.toLowerCase().includes(q);
+      const matchAliases = (suite.aliases || []).some((a) => a.toLowerCase().includes(q));
+      return matchName || matchDesc || matchAliases;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="cmd-loading">No command suites match your search.</div>';
+    return;
+  }
+
+  container.innerHTML = filtered
+    .map((s) => {
+      const primaryCmd = s.uniquecommands?.[0] || s.aliases?.[0] || s.name;
+      const aliasesPills = (s.aliases || [])
+        .slice(0, 5)
+        .map((a) => `<span class="alias-badge">.${a}</span>`)
+        .join('');
+
+      return `
+      <div class="cmd-item-card" onclick="simulateCommand('${primaryCmd}')">
+        <div class="cmd-info">
+          <h5>.${primaryCmd} (${s.name})</h5>
+          <p>${escapeHtml(s.description)}</p>
+          <div class="cmd-aliases">${aliasesPills}</div>
+        </div>
+        <button class="cmd-run-btn">Run ➔</button>
+      </div>
+    `;
+    })
+    .join('');
+}
+
+// Terminal Simulator Execution
+async function simulateCommand(cmdName) {
+  playThwipSound();
+  const screen = document.getElementById('terminalScreen');
+  if (!screen) return;
+
+  const cleanCmd = cmdName.replace(/^[\.\/\!\#]/, '').trim();
+
+  // Append user input line
+  const userLine = document.createElement('div');
+  userLine.className = 'term-entry user';
+  userLine.innerHTML = `<span class="term-prompt">spider-bot@earth-1610:~$</span> .${escapeHtml(cleanCmd)}`;
+  screen.appendChild(userLine);
+  screen.scrollTop = screen.scrollHeight;
+
+  try {
+    const res = await fetch('/api/simulate-cmd', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cmd: cleanCmd }),
+    });
+    const data = await res.json();
+
+    const botLine = document.createElement('div');
+    botLine.className = 'term-entry bot';
+    botLine.innerHTML = formatTerminalMarkdown(data.output || 'Command executed.');
+    screen.appendChild(botLine);
+
+    if (data.reaction) {
+      spawnComicBadge(data.reaction + ' ' + cleanCmd.toUpperCase());
+    }
+
+    playGlitchSound();
+  } catch (err) {
+    const errLine = document.createElement('div');
+    errLine.className = 'term-entry bot';
+    errLine.innerHTML = `⚠️ Error simulating command: ${err.message}`;
+    screen.appendChild(errLine);
+  }
+
+  screen.scrollTop = screen.scrollHeight;
+}
+
+function handleTerminalSubmit(e) {
+  e.preventDefault();
+  const input = document.getElementById('terminalInput');
+  const val = input.value.trim();
+  if (!val) return;
+  simulateCommand(val);
+  input.value = '';
+}
+
+function clearTerminal() {
+  playClickSound();
+  const screen = document.getElementById('terminalScreen');
+  if (screen) {
+    screen.innerHTML = `
+      <div class="term-entry system">
+        <span class="term-prompt">spider-bot@earth-1610:~$</span>
+        <span class="term-text">Terminal cleared. Ready for next command.</span>
+      </div>
+    `;
+  }
+}
+
+function formatTerminalMarkdown(text) {
+  return escapeHtml(text)
+    .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+    .replace(/\*(.*?)\*/g, '<i>$1</i>')
+    .replace(/`(.*?)`/g, '<code style="background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">$1</code>');
+}
+
+// --- Multiverse Hero Lore Deck ---
+const HEROES_LORE = [
+  {
+    id: 'miles',
+    name: 'Miles Morales',
+    heroName: 'Spider-Man / Brooklyn\'s Own',
+    earth: 'Earth-1610',
+    icon: '🕷️',
+    quote: '"Everyone keeps telling me how my story is supposed to go... nah, I\'mma do my own thing."',
+    abilities: 'Bio-Electric Venom Blast, Camouflage Invisibility, Wall-Crawling, Spider-Sense',
+    stats: { strength: 88, speed: 92, agility: 96, venom: 100, tech: 85, style: 100 },
+  },
+  {
+    id: 'gwen',
+    name: 'Gwen Stacy',
+    heroName: 'Ghost-Spider / Spider-Woman',
+    earth: 'Earth-65',
+    icon: '🌸',
+    quote: '"In my universe, I couldn\'t save my best friend Peter. I won\'t make that mistake again."',
+    abilities: 'Ballet Acrobatic Web-Swinging, Multiverse Watch, Drum Rhythm Reflexes',
+    stats: { strength: 84, speed: 95, agility: 98, venom: 0, tech: 90, style: 96 },
+  },
+  {
+    id: 'miguel',
+    name: 'Miguel O\'Hara',
+    heroName: 'Spider-Man 2099',
+    earth: 'Earth-928',
+    icon: '🔵',
+    quote: '"Being Spider-Man is a sacrifice. That is the job. That is what you signed up for."',
+    abilities: 'Laser Hard-Light Webs, Talons, Organic Fangs, Accelerated Vision, Gliding Cape',
+    stats: { strength: 98, speed: 90, agility: 88, venom: 70, tech: 98, style: 92 },
+  },
+  {
+    id: 'punk',
+    name: 'Hobie Brown',
+    heroName: 'Spider-Punk',
+    earth: 'Earth-138',
+    icon: '🎸',
+    quote: '"I don\'t believe in consistency. Down with the establishment!"',
+    abilities: 'Electric Soundwave Bass Guitar, Anarchy Spikes, Anti-Fascist Web Disruption',
+    stats: { strength: 86, speed: 92, agility: 94, venom: 40, tech: 80, style: 100 },
+  },
+  {
+    id: 'pavitr',
+    name: 'Pavitr Prabhakar',
+    heroName: 'Spider-Man India',
+    earth: 'Earth-50101',
+    icon: '🇮🇳',
+    quote: '"Chai tea? Chai MEANS tea, bro! Would I ask you for coffee coffee with cream cream?!"',
+    abilities: 'Yoyo Ring-Web Slinging, High Energy Acrobatic Dodging, Perfect Hair',
+    stats: { strength: 85, speed: 94, agility: 97, venom: 0, tech: 75, style: 95 },
+  },
+  {
+    id: 'peterb',
+    name: 'Peter B. Parker',
+    heroName: 'Spider-Man (Mentor)',
+    earth: 'Earth-616',
+    icon: '🍕',
+    quote: '"You won\'t know if you\'re ready. That\'s all it is, Miles. A leap of faith."',
+    abilities: 'Master Combat Veteran, Dad Web Swing with Mayday in Baby Harness',
+    stats: { strength: 90, speed: 88, agility: 90, venom: 0, tech: 88, style: 80 },
+  },
+  {
+    id: 'noir',
+    name: 'Spider-Man Noir',
+    heroName: 'Peter Parker (Noir)',
+    earth: 'Earth-90214',
+    icon: '🕵️',
+    quote: '"Wherever I go, the wind follows. And the wind, it smells like rain."',
+    abilities: '1930s Detective Intuition, Trench Coat Gliding, Rubik\'s Cube Master',
+    stats: { strength: 87, speed: 85, agility: 88, venom: 0, tech: 70, style: 94 },
+  },
+];
+
+let selectedHeroId = 'miles';
+
+function renderMultiverseDeck() {
+  const bar = document.getElementById('heroSelectorBar');
+  const card = document.getElementById('heroSpotlightCard');
+  if (!bar || !card) return;
+
+  bar.innerHTML = HEROES_LORE.map(
+    (h) => `
+    <button class="hero-select-chip ${h.id === selectedHeroId ? 'active' : ''}" onclick="selectHero('${h.id}')">
+      <span>${h.icon}</span> <span>${h.name} (${h.earth})</span>
+    </button>
+  `
+  ).join('');
+
+  const hero = HEROES_LORE.find((h) => h.id === selectedHeroId) || HEROES_LORE[0];
+
+  card.innerHTML = `
+    <div class="hero-visual">
+      <div class="hero-icon-large">${hero.icon}</div>
+      <div class="hero-identity">
+        <h4>${hero.name}</h4>
+        <span class="hero-earth-tag">${hero.heroName} // ${hero.earth}</span>
+      </div>
+      <button class="action-pill-btn" onclick="spawnComicBadge('${hero.name.toUpperCase()}!')">
+        ⚡ Multiverse Voiceline
+      </button>
+    </div>
+
+    <div class="hero-lore">
+      <div class="hero-quote-box">${hero.quote}</div>
+      <p style="font-size: 0.85rem; color: #cbd5e1;"><b>Special Abilities:</b> ${hero.abilities}</p>
+      
+      <div class="radar-stats">
+        ${renderStatBar('STRENGTH', hero.stats.strength)}
+        ${renderStatBar('SPEED', hero.stats.speed)}
+        ${renderStatBar('AGILITY', hero.stats.agility)}
+        ${renderStatBar('VENOM/FX', hero.stats.venom)}
+        ${renderStatBar('TECH INTEL', hero.stats.tech)}
+        ${renderStatBar('SWAG & STYLE', hero.stats.style)}
+      </div>
+    </div>
+  `;
+}
+
+function renderStatBar(label, val) {
+  return `
+    <div class="radar-row">
+      <span class="radar-label">${label}</span>
+      <div class="radar-bar-track">
+        <div class="radar-bar-fill" style="width: ${val}%"></div>
+      </div>
+      <span class="radar-val">${val}</span>
+    </div>
+  `;
+}
+
+function selectHero(heroId) {
+  playClickSound();
+  selectedHeroId = heroId;
+  renderMultiverseDeck();
+}
+
+// --- Leap of Faith Mini-Game Engine (60fps Canvas) ---
+let gameCanvas = null;
+let gameCtx = null;
+let gameRunning = false;
+let gameLoopId = null;
+let score = 0;
+let highScore = parseInt(localStorage.getItem('miles_high_score') || '0', 10);
+let combo = 1;
+let venomCharge = 0;
+
+let milesObj = {
+  x: 100,
+  y: 150,
+  vy: 0,
+  radius: 14,
+  isSwinging: false,
+  webAnchor: { x: 0, y: 0 },
+};
+
+let buildings = [];
+let collectibles = [];
+let hazards = [];
+
+function initGameCanvas() {
+  gameCanvas = document.getElementById('gameCanvas');
+  if (!gameCanvas) return;
+  gameCtx = gameCanvas.getContext('2d');
+  document.getElementById('gameHighScore').innerText = highScore;
+
+  // Bind Canvas & Keyboard Controls
+  window.removeEventListener('keydown', handleGameKey);
+  window.addEventListener('keydown', handleGameKey);
+
+  gameCanvas.onmousedown = handleGameActionStart;
+  gameCanvas.onmouseup = handleGameActionEnd;
+  gameCanvas.ontouchstart = (e) => { e.preventDefault(); handleGameActionStart(); };
+  gameCanvas.ontouchend = (e) => { e.preventDefault(); handleGameActionEnd(); };
+}
+
+function handleGameKey(e) {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (!gameRunning) startGame();
+    else milesObj.isSwinging = true;
+  } else if (e.code === 'KeyV') {
+    gameTriggerVenom();
+  }
+}
+
+window.addEventListener('keyup', (e) => {
+  if (e.code === 'Space') {
+    milesObj.isSwinging = false;
+  }
+});
+
+function handleGameActionStart() {
+  if (!gameRunning) startGame();
+  else milesObj.isSwinging = true;
+}
+
+function handleGameActionEnd() {
+  milesObj.isSwinging = false;
+}
+
+function startGame() {
+  playThwipSound();
+  gameRunning = true;
+  score = 0;
+  combo = 1;
+  venomCharge = 0;
+  milesObj.x = 120;
+  milesObj.y = 150;
+  milesObj.vy = 0;
+  milesObj.isSwinging = false;
+
+  buildings = [];
+  collectibles = [];
+  hazards = [];
+
+  // Generate initial buildings
+  for (let i = 0; i < 6; i++) {
+    buildings.push({
+      x: i * 150,
+      width: 100,
+      height: 180 + Math.random() * 100,
+    });
+  }
+
+  document.getElementById('gameOverOverlay').classList.add('hidden');
+  document.getElementById('gameScore').innerText = '0';
+  document.getElementById('gameCombo').innerText = 'x1';
+  updateVenomMeter(0);
+
+  if (gameLoopId) cancelAnimationFrame(gameLoopId);
+  gameLoop();
+}
+
+function gameLoop() {
+  if (!gameRunning) return;
+  updateGame();
+  renderGame();
+  gameLoopId = requestAnimationFrame(gameLoop);
+}
+
+function updateGame() {
+  score += combo;
+  document.getElementById('gameScore').innerText = score;
+
+  // Physics
+  if (milesObj.isSwinging) {
+    // Find closest anchor above
+    milesObj.vy -= 0.65;
+    milesObj.vy = Math.max(milesObj.vy, -6);
+  } else {
+    milesObj.vy += 0.35; // Gravity
+  }
+
+  milesObj.y += milesObj.vy;
+
+  // Ceiling & Floor Collision
+  if (milesObj.y < 20) {
+    milesObj.y = 20;
+    milesObj.vy = 0;
+  }
+  if (milesObj.y > 350) {
+    endGame();
+    return;
+  }
+
+  // Scroll Buildings
+  for (let b of buildings) {
+    b.x -= 3;
+  }
+
+  if (buildings.length && buildings[0].x < -120) {
+    buildings.shift();
+    const lastB = buildings[buildings.length - 1];
+    buildings.push({
+      x: lastB.x + 130 + Math.random() * 40,
+      width: 90 + Math.random() * 40,
+      height: 160 + Math.random() * 120,
+    });
+  }
+
+  // Spawn Collectibles & Hazards
+  if (Math.random() < 0.03) {
+    collectibles.push({
+      x: 750,
+      y: 60 + Math.random() * 200,
+      radius: 10,
+      type: Math.random() > 0.3 ? 'spider' : 'venom',
+    });
+  }
+
+  if (Math.random() < 0.015) {
+    hazards.push({
+      x: 750,
+      y: 80 + Math.random() * 220,
+      radius: 14,
+    });
+  }
+
+  // Update Collectibles
+  for (let i = collectibles.length - 1; i >= 0; i--) {
+    const c = collectibles[i];
+    c.x -= 3.5;
+
+    const dx = c.x - milesObj.x;
+    const dy = c.y - milesObj.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist < c.radius + milesObj.radius) {
+      if (c.type === 'spider') {
+        score += 100 * combo;
+        combo = Math.min(combo + 1, 10);
+        playClickSound();
+        spawnComicBadge('THWIP! +100', milesObj.x, milesObj.y);
+      } else {
+        score += 250 * combo;
+        venomCharge = Math.min(venomCharge + 35, 100);
+        updateVenomMeter(venomCharge);
+        playVenomZapSound();
+        spawnComicBadge('⚡ VENOM CHARGE!', milesObj.x, milesObj.y);
+      }
+      document.getElementById('gameCombo').innerText = `x${combo}`;
+      collectibles.splice(i, 1);
+    } else if (c.x < -30) {
+      collectibles.splice(i, 1);
+    }
+  }
+
+  // Update Hazards
+  for (let i = hazards.length - 1; i >= 0; i--) {
+    const h = hazards[i];
+    h.x -= 4.2;
+
+    const dx = h.x - milesObj.x;
+    const dy = h.y - milesObj.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist < h.radius + milesObj.radius) {
+      endGame();
+      return;
+    } else if (h.x < -40) {
+      hazards.splice(i, 1);
+    }
+  }
+}
+
+function renderGame() {
+  if (!gameCtx) return;
+  gameCtx.clearRect(0, 0, 700, 380);
+
+  // Background Brooklyn Skyline
+  gameCtx.fillStyle = '#080a14';
+  gameCtx.fillRect(0, 0, 700, 380);
+
+  // Draw Buildings
+  for (let b of buildings) {
+    gameCtx.fillStyle = '#121626';
+    gameCtx.fillRect(b.x, 380 - b.height, b.width, b.height);
+    gameCtx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
+    gameCtx.strokeRect(b.x, 380 - b.height, b.width, b.height);
+
+    // Glowing windows
+    gameCtx.fillStyle = 'rgba(255, 223, 0, 0.3)';
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 2; c++) {
+        gameCtx.fillRect(b.x + 15 + c * 35, 380 - b.height + 20 + r * 30, 15, 15);
+      }
+    }
+  }
+
+  // Draw Web Strand if Swinging
+  if (milesObj.isSwinging) {
+    gameCtx.beginPath();
+    gameCtx.moveTo(milesObj.x, milesObj.y);
+    gameCtx.lineTo(milesObj.x + 80, 0);
+    gameCtx.strokeStyle = '#fff';
+    gameCtx.lineWidth = 2.5;
+    gameCtx.stroke();
+  }
+
+  // Draw Collectibles
+  for (let c of collectibles) {
+    gameCtx.beginPath();
+    gameCtx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
+    gameCtx.fillStyle = c.type === 'spider' ? '#ff0055' : '#00f0ff';
+    gameCtx.fill();
+    gameCtx.strokeStyle = '#fff';
+    gameCtx.stroke();
+  }
+
+  // Draw Hazards (Glitch Portals)
+  for (let h of hazards) {
+    gameCtx.beginPath();
+    gameCtx.arc(h.x, h.y, h.radius, 0, Math.PI * 2);
+    gameCtx.fillStyle = '#ff003b';
+    gameCtx.fill();
+    gameCtx.strokeStyle = '#ffdf00';
+    gameCtx.lineWidth = 2;
+    gameCtx.stroke();
+  }
+
+  // Draw Miles Character
+  gameCtx.beginPath();
+  gameCtx.arc(milesObj.x, milesObj.y, milesObj.radius, 0, Math.PI * 2);
+  gameCtx.fillStyle = '#ff0055';
+  gameCtx.fill();
+  gameCtx.strokeStyle = '#fff';
+  gameCtx.lineWidth = 2;
+  gameCtx.stroke();
+
+  // Spider Eyes on Character
+  gameCtx.fillStyle = '#fff';
+  gameCtx.beginPath();
+  gameCtx.ellipse(milesObj.x + 4, milesObj.y - 2, 4, 2, Math.PI / 4, 0, Math.PI * 2);
+  gameCtx.fill();
+}
+
+function updateVenomMeter(val) {
+  const fill = document.getElementById('venomBarFill');
+  const btn = document.getElementById('gameVenomBtn');
+  if (fill) fill.style.width = `${val}%`;
+  if (btn) btn.disabled = val < 100;
+}
+
+function gameTriggerVenom() {
+  if (venomCharge < 100) return;
+  venomCharge = 0;
+  updateVenomMeter(0);
+  hazards = [];
+  combo = Math.min(combo * 2, 20);
+  document.getElementById('gameCombo').innerText = `x${combo}`;
+  triggerVenomBlast();
+  spawnComicBadge('⚡ VENOM CLEAR! 2X MULTIPLIER ⚡');
+}
+
+function endGame() {
+  gameRunning = false;
+  playGlitchSound();
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem('miles_high_score', highScore);
+    document.getElementById('gameHighScore').innerText = highScore;
+    spawnComicBadge('🏆 NEW HIGH SCORE!');
+  }
+
+  const overlay = document.getElementById('gameOverOverlay');
+  const title = document.getElementById('overlayTitle');
+  const scoreBox = document.getElementById('overlayScoreBox');
+  document.getElementById('finalScore').innerText = score;
+  document.getElementById('finalBest').innerText = highScore;
+
+  title.innerText = 'GLITCH DETECTED!';
+  scoreBox.style.display = 'flex';
+  overlay.classList.remove('hidden');
+}
+
+// Helper: Escape HTML
+function escapeHtml(str) {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}

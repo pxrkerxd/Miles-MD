@@ -96,9 +96,29 @@ export default {
 
         if (!admins.length) return m.reply("🕸️ No group admins detected.");
 
+        const ownerNumbers = global.owner || ["919123764864"];
         let txt = `🚨 *SPIDER-SIGNAL: CALLING GROUP ADMINS* 🚨\n\n`;
         admins.forEach((a, i) => {
-          txt += `${i + 1}. @${a.id.split("@")[0]}\n`;
+          const userJid = a.id;
+          const userNum = userJid.split("@")[0];
+
+          let adminName = "";
+          if (ownerNumbers.includes(userNum)) {
+            adminName = `${global.ownername || "Parker"} (Creator)`;
+          } else if (global.contactNames?.has(userJid)) {
+            adminName = global.contactNames.get(userJid);
+          } else if (global.contactNames?.has(userNum)) {
+            adminName = global.contactNames.get(userNum);
+          } else if (SpiderBot.contacts?.[userJid]?.notify || SpiderBot.contacts?.[userJid]?.name) {
+            adminName = SpiderBot.contacts[userJid].notify || SpiderBot.contacts[userJid].name;
+          }
+
+          const role = a.admin === "superadmin" ? " 👑 *[Leader]*" : " ⚡ *[Admin]*";
+          if (adminName) {
+            txt += `${i + 1}. 🕷️ @${userNum} ~ *${adminName}*${role}\n`;
+          } else {
+            txt += `${i + 1}. 🕷️ @${userNum}${role}\n`;
+          }
         });
         txt += `\n_Message: ${text || "Attention required in group!"}_ 🕸️`;
 

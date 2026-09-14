@@ -36,6 +36,8 @@ export default {
       prefix,
       inputCMD,
       doReact,
+      text,
+      args,
       isCreator,
       botName,
       activeChar,

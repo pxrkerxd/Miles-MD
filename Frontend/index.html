@@ -1,269 +1,565 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="miles">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Miles Morales MD - Spider-Verse WhatsApp Bot</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@300;400;600;800;900&family=Permanent+Marker&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Miles Morales MD - Earth-1610 Spider-Verse Bot</title>
+  
+  <!-- Modern Typography from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700;800&family=Permanent+Marker&family=Space+Grotesk:wght@500;700;900&display=swap" rel="stylesheet" />
+  
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- Interactive Web Particle & Physics Canvas -->
+  <canvas id="spiderCanvas"></canvas>
+  
+  <!-- Comic Halftone & Glitch Gradients -->
   <div class="halftone-overlay"></div>
   <div class="glitch-grid"></div>
+  <div id="shockwaveLayer" class="shockwave-layer"></div>
 
-  <main class="dashboard-wrapper">
-    <!-- Header Section -->
-    <header class="hero-header">
-      <div class="spider-badge">EARTH-1610 // BROOKLYN NY</div>
-      <h1 class="glitch-title" data-text="MILES MORALES MD">MILES MORALES MD</h1>
-      <p class="tagline">"Anyone can wear the mask. It's how you wear it that counts."</p>
-      
-      <div class="status-bar">
-        <div class="status-pill" id="statusPill">
+  <!-- Comic Text Popup Overlay (THWIP!, BZZZT!) -->
+  <div id="comicPopups" class="comic-popups-layer"></div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Main Application Wrapper -->
+  <div class="app-container">
+    
+    <!-- Top Interactive Command Bar -->
+    <header class="top-bar">
+      <div class="top-left">
+        <div class="dimension-badge" id="dimensionBadge">
+          <span class="pulse-spark"></span>
+          <span class="dim-text">EARTH-1610 // BROOKLYN NY</span>
+        </div>
+        <div class="status-pill" id="globalStatusPill">
           <span class="status-dot pulse" id="statusDot"></span>
           <span class="status-text" id="statusText">CONNECTING...</span>
         </div>
+      </div>
+
+      <div class="top-right">
+        <!-- Audio Synthesizer Control -->
+        <button class="icon-tool-btn active" id="audioToggleBtn" title="Toggle Spider-Verse Sound FX" onclick="toggleAudio()">
+          <span class="audio-waves" id="audioWaves">
+            <span></span><span></span><span></span><span></span>
+          </span>
+          <span class="btn-text">SFX: ON</span>
+        </button>
+
+        <!-- Dimension Theme Switcher -->
+        <div class="theme-dropdown-wrapper">
+          <select id="themeSelect" onchange="changeTheme(this.value)" class="theme-dropdown" title="Multiverse Theme Switcher">
+            <option value="miles">🕷️ Miles (Earth-1610)</option>
+            <option value="gwen">🌸 Ghost-Spider (Earth-65)</option>
+            <option value="miguel">🔵 Spider-Man 2099 (Earth-928)</option>
+            <option value="punk">🎸 Spider-Punk (Earth-138)</option>
+            <option value="pavitr">🇮🇳 Spider-Man India (Earth-50101)</option>
+          </select>
+        </div>
+
+        <!-- Venom Blast Screen Trigger -->
+        <button class="venom-blast-btn" id="venomBlastBtn" onclick="triggerVenomBlast()" title="Trigger Bio-Electric Surge">
+          <span class="spark-icon">⚡</span>
+          <span class="blast-text">VENOM BLAST</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Hero Title & Identity -->
+    <section class="hero-section">
+      <h1 class="glitch-title" id="heroTitle" data-text="MILES MORALES MD">MILES MORALES MD</h1>
+      <p class="tagline" id="heroTagline">"Anyone can wear the mask. It's how you wear it that counts."</p>
+
+      <div class="telemetry-bar">
         <div class="telemetry-pill">
           <span class="label">UPTIME:</span>
           <span class="val" id="uptimeVal">0h 0m 0s</span>
         </div>
         <div class="telemetry-pill">
-          <span class="label">SUITES:</span>
+          <span class="label">COMMAND SUITES:</span>
           <span class="val" id="suitesVal">Loading...</span>
         </div>
-      </div>
-    </header>
-
-    <!-- Main Interactive Card -->
-    <section class="main-card">
-      <div class="card-glow"></div>
-      
-      <!-- Navigation Tabs -->
-      <nav class="auth-tabs">
-        <button class="tab-btn active" id="tabPairBtn" onclick="switchTab('pair')">
-          ⚡ PAIRING CODE
-        </button>
-        <button class="tab-btn" id="tabQrBtn" onclick="switchTab('qr')">
-          📷 QR CODE SCAN
-        </button>
-        <button class="tab-btn" id="tabFeaturesBtn" onclick="switchTab('features')">
-          🕷️ SPIDER FEATURES
-        </button>
-      </nav>
-
-      <!-- Tab 1: Pairing Code -->
-      <div class="tab-content" id="pairTab">
-        <div class="pair-box">
-          <h3>LINK VIA PHONE NUMBER</h3>
-          <p class="sub-instructions">Enter your WhatsApp phone number with international country code (no + or spaces).</p>
-          
-          <form id="pairForm" onsubmit="handlePairSubmit(event)">
-            <div class="input-group">
-              <span class="input-prefix">📞</span>
-              <input 
-                type="tel" 
-                id="phoneInput" 
-                placeholder="e.g. 14155552671 or 919876543210" 
-                required 
-                autocomplete="off"
-              />
-            </div>
-            <button type="submit" class="cta-button" id="submitPairBtn">
-              <span class="btn-glitch"></span>
-              <span class="btn-label">GET PAIRING CODE</span>
-            </button>
-          </form>
-
-          <div class="code-result-box hidden" id="codeBox">
-            <span class="code-label">YOUR 8-DIGIT PAIRING CODE:</span>
-            <div class="code-display" id="codeDisplay">---- ----</div>
-            <button class="copy-btn" id="copyBtn" onclick="copyCode()">
-              📋 COPY CODE
-            </button>
-            <p class="code-instructions">Open WhatsApp on your phone ➔ <b>Linked Devices</b> ➔ <b>Link with phone number instead</b> ➔ Enter this code.</p>
-          </div>
+        <div class="telemetry-pill">
+          <span class="label">PREFIX:</span>
+          <span class="val highlight" id="prefixVal">/</span>
         </div>
-      </div>
-
-      <!-- Tab 2: QR Scanner -->
-      <div class="tab-content hidden" id="qrTab">
-        <div class="qr-box">
-          <h3>SCAN SPIDER-CODE</h3>
-          <p class="sub-instructions">Open WhatsApp ➔ <b>Settings / Menu</b> ➔ <b>Linked Devices</b> ➔ <b>Link a Device</b>.</p>
-          
-          <div class="qr-frame">
-            <div class="qr-scanner-line"></div>
-            <img id="qrImage" src="" alt="WhatsApp QR Code" class="qr-img hidden">
-            <div class="qr-placeholder" id="qrPlaceholder">
-              <div class="spinner"></div>
-              <span>Generating Spider QR...</span>
-            </div>
-          </div>
-          <p class="qr-timer">Auto-refreshes every 5 seconds until scanned.</p>
-        </div>
-      </div>
-
-      <!-- Tab 3: Spider Features Preview -->
-      <div class="tab-content hidden" id="featuresTab">
-        <div class="features-grid">
-          <div class="feature-card">
-            <div class="f-icon">⚡</div>
-            <h4>Venom Blast AI</h4>
-            <p>Direct chat with Miles Morales powered by Gemini AI with authentic Brooklyn personality.</p>
-          </div>
-          <div class="feature-card">
-            <div class="f-icon">🌀</div>
-            <h4>20 Multiverse Characters</h4>
-            <p>Switch between Miles, Spider-Gwen, Miguel 2099, Spider-Punk, Pavitr, Noir, and 14 others.</p>
-          </div>
-          <div class="feature-card">
-            <div class="f-icon">📥</div>
-            <h4>Media Downloader</h4>
-            <p>Download HD videos & audio from YouTube, TikTok, Instagram, Twitter, and Spotify.</p>
-          </div>
-          <div class="feature-card">
-            <div class="f-icon">🔖</div>
-            <h4>Sticker Workshop</h4>
-            <p>Turn photos & videos into high-quality WhatsApp stickers with custom Spider pack metadata.</p>
-          </div>
-          <div class="feature-card">
-            <div class="f-icon">🛡️</div>
-            <h4>Group Protection</h4>
-            <p>Anti-link defense, welcome messages, tagall, mute, promote, demote, and admin commands.</p>
-          </div>
-          <div class="feature-card">
-            <div class="f-icon">🕸️</div>
-            <h4>Spider-Sense Alert</h4>
-            <p>Custom thematic commands: .spidersense, .venom, .leapoffaith, and .canon events!</p>
-          </div>
+        <div class="telemetry-pill">
+          <span class="label">SPIDER-LATENCY:</span>
+          <span class="val" id="latencyVal">~16ms</span>
         </div>
       </div>
     </section>
 
+    <!-- Main Interactive Dashboard Shell -->
+    <main class="dashboard-shell">
+      
+      <!-- Interactive Navigation Tabs -->
+      <nav class="dashboard-nav" role="tablist">
+        <button class="nav-tab active" id="tab-pair" onclick="switchMainTab('pair')" role="tab">
+          <span class="tab-icon">⚡</span>
+          <span class="tab-title">LINK & PAIR</span>
+        </button>
+        <button class="nav-tab" id="tab-chat" onclick="switchMainTab('chat')" role="tab">
+          <span class="tab-icon">💬</span>
+          <span class="tab-title">VENOM AI CHAT</span>
+          <span class="tab-badge">LIVE</span>
+        </button>
+        <button class="nav-tab" id="tab-simulator" onclick="switchMainTab('simulator')" role="tab">
+          <span class="tab-icon">🕹️</span>
+          <span class="tab-title">COMMAND LAB</span>
+        </button>
+        <button class="nav-tab" id="tab-multiverse" onclick="switchMainTab('multiverse')" role="tab">
+          <span class="tab-icon">🕸️</span>
+          <span class="tab-title">MULTIVERSE DECK</span>
+        </button>
+        <button class="nav-tab" id="tab-game" onclick="switchMainTab('game')" role="tab">
+          <span class="tab-icon">🎮</span>
+          <span class="tab-title">LEAP OF FAITH</span>
+          <span class="tab-badge special">MINI-GAME</span>
+        </button>
+        <button class="nav-tab" id="tab-telemetry" onclick="switchMainTab('telemetry')" role="tab">
+          <span class="tab-icon">📊</span>
+          <span class="tab-title">SYSTEM & LOGS</span>
+        </button>
+      </nav>
+
+      <!-- TAB 1: PAIRING & QR SCAN -->
+      <section class="tab-pane active" id="pane-pair">
+        <div class="pair-card-grid">
+          
+          <!-- Mode Switcher (Phone Code vs QR Code) -->
+          <div class="auth-sub-nav">
+            <button class="sub-nav-btn active" id="subPairBtn" onclick="switchAuthMode('code')">
+              📱 8-Digit Phone Pairing Code
+            </button>
+            <button class="sub-nav-btn" id="subQrBtn" onclick="switchAuthMode('qr')">
+              📷 Holographic QR Scanner
+            </button>
+          </div>
+
+          <!-- Section A: Phone Pairing Form -->
+          <div class="auth-mode-content" id="authModeCode">
+            <div class="interactive-form-box">
+              <div class="box-header">
+                <h3>LINK WHATSAPP VIA PHONE NUMBER</h3>
+                <p>Select your country code and enter your WhatsApp number without spaces or special characters.</p>
+              </div>
+
+              <!-- Country Quick Buttons -->
+              <div class="country-chips">
+                <span class="chip-label">Quick Country:</span>
+                <button type="button" class="country-chip" onclick="setCountryCode('1')">🇺🇸 USA (+1)</button>
+                <button type="button" class="country-chip" onclick="setCountryCode('91')">🇮🇳 India (+91)</button>
+                <button type="button" class="country-chip" onclick="setCountryCode('44')">🇬🇧 UK (+44)</button>
+                <button type="button" class="country-chip" onclick="setCountryCode('55')">🇧🇷 Brazil (+55)</button>
+                <button type="button" class="country-chip" onclick="setCountryCode('62')">🇮🇩 Indonesia (+62)</button>
+                <button type="button" class="country-chip" onclick="setCountryCode('234')">🇳🇬 Nigeria (+234)</button>
+              </div>
+
+              <form id="pairForm" onsubmit="handlePairSubmit(event)">
+                <div class="phone-input-row">
+                  <div class="country-prefix-box">
+                    <span>+</span>
+                    <input type="number" id="countryCodeInput" placeholder="1" value="1" min="1" max="999" />
+                  </div>
+                  <div class="phone-number-box">
+                    <input 
+                      type="tel" 
+                      id="phoneMainInput" 
+                      placeholder="e.g. 4155552671" 
+                      required 
+                      autocomplete="off" 
+                    />
+                  </div>
+                </div>
+
+                <button type="submit" class="cyber-btn main-cta" id="submitPairBtn">
+                  <span class="btn-glitch-layer"></span>
+                  <span class="btn-content">
+                    <span class="btn-spark">⚡</span> GENERATE 8-DIGIT CODE
+                  </span>
+                </button>
+              </form>
+
+              <!-- Pairing Code Result Display -->
+              <div class="code-result-container hidden" id="codeBox">
+                <div class="code-result-header">
+                  <span class="pulse-bullet"></span>
+                  <span>ENTER THIS CODE ON YOUR WHATSAPP:</span>
+                </div>
+                
+                <div class="code-badge-display" id="codeDisplay">---- ----</div>
+                
+                <div class="code-actions">
+                  <button class="action-pill-btn" id="copyBtn" onclick="copyPairCode()">
+                    📋 COPY CODE TO CLIPBOARD
+                  </button>
+                </div>
+
+                <div class="step-guide">
+                  <div class="step-item">
+                    <span class="step-num">1</span>
+                    <span>Open WhatsApp on your phone</span>
+                  </div>
+                  <div class="step-item">
+                    <span class="step-num">2</span>
+                    <span>Go to <b>Settings / Menu</b> ➔ <b>Linked Devices</b></span>
+                  </div>
+                  <div class="step-item">
+                    <span class="step-num">3</span>
+                    <span>Tap <b>Link with phone number instead</b></span>
+                  </div>
+                  <div class="step-item">
+                    <span class="step-num">4</span>
+                    <span>Type in the 8-digit code shown above</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section B: Holographic QR Scanner -->
+          <div class="auth-mode-content hidden" id="authModeQr">
+            <div class="qr-interactive-box">
+              <div class="box-header">
+                <h3>HOLOGRAPHIC QUANTUM QR SCANNER</h3>
+                <p>Open WhatsApp ➔ Linked Devices ➔ Link a Device, and point your camera at the screen.</p>
+              </div>
+
+              <div class="qr-hologram-frame">
+                <div class="laser-scanner"></div>
+                <div class="corner-bracket top-left"></div>
+                <div class="corner-bracket top-right"></div>
+                <div class="corner-bracket bottom-left"></div>
+                <div class="corner-bracket bottom-right"></div>
+
+                <img id="qrImage" src="" alt="WhatsApp QR Code" class="qr-render hidden" />
+                
+                <div class="qr-loading-state" id="qrPlaceholder">
+                  <div class="spider-spinner"></div>
+                  <span id="qrStatusLabel">Connecting to Spider-Verse quantum stream...</span>
+                </div>
+              </div>
+
+              <div class="qr-footer-telemetry">
+                <span class="refresh-pill">
+                  🔄 Auto-refreshing in <b id="qrTimer">4s</b>
+                </span>
+                <button class="refresh-now-btn" onclick="fetchQR(true)">Force Refresh</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- TAB 2: VENOM AI CHAT TERMINAL -->
+      <section class="tab-pane" id="pane-chat">
+        <div class="chat-terminal-wrapper">
+          
+          <!-- Chat Terminal Header -->
+          <div class="chat-header">
+            <div class="chat-hero-info">
+              <div class="chat-avatar">🕷️</div>
+              <div>
+                <h4>MILES MORALES // AI TERMINAL</h4>
+                <p class="chat-subtitle">Earth-1610 Brooklyn • Connected via Neural Web</p>
+              </div>
+            </div>
+            <div class="chat-header-actions">
+              <button class="clear-chat-btn" onclick="clearChatHistory()" title="Clear Chat History">🗑️ Clear Chat</button>
+            </div>
+          </div>
+
+          <!-- Quick Suggestion Chips -->
+          <div class="chat-suggestions">
+            <span class="sugg-label">Ask Miles:</span>
+            <button class="sugg-chip" onclick="sendQuickPrompt('Yo Miles, tell me about Earth-42!')">Earth-42 Intel 🌀</button>
+            <button class="sugg-chip" onclick="sendQuickPrompt('How do I take a Leap of Faith?')">Leap of Faith 🌆</button>
+            <button class="sugg-chip" onclick="sendQuickPrompt('How do your Bio-Electric Venom Blasts work?')">Venom Blast ⚡</button>
+            <button class="sugg-chip" onclick="sendQuickPrompt('What music is in your headphones right now?')">Playlist 🎧</button>
+            <button class="sugg-chip" onclick="sendQuickPrompt('What are your top WhatsApp bot commands?')">Top Commands 🤖</button>
+          </div>
+
+          <!-- Chat Message Log -->
+          <div class="chat-messages" id="chatMessages">
+            <div class="msg miles-msg">
+              <div class="msg-sender">🕷️ MILES MORALES</div>
+              <div class="msg-bubble">
+                Yo! What's good! I'm Miles Morales. Whether you need spider lore, tech advice, WhatsApp bot help, or just wanna talk music and Brooklyn vibes, I gotchu. Ask me anything!
+              </div>
+              <div class="msg-time">Just now</div>
+            </div>
+          </div>
+
+          <!-- Typing Indicator -->
+          <div class="typing-indicator hidden" id="typingIndicator">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <span>Miles is typing from Brooklyn...</span>
+          </div>
+
+          <!-- Chat Input Row -->
+          <form class="chat-input-bar" onsubmit="handleChatSubmit(event)">
+            <input 
+              type="text" 
+              id="chatInput" 
+              placeholder="Ask Miles anything (e.g. 'How do I take a leap of faith?')..." 
+              autocomplete="off" 
+              required 
+            />
+            <button type="submit" class="send-msg-btn" id="sendMsgBtn">
+              <span>SEND</span> 🚀
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- TAB 3: COMMAND LAB & SIMULATOR -->
+      <section class="tab-pane" id="pane-simulator">
+        <div class="simulator-layout">
+          
+          <!-- Left: Searchable Command Catalog -->
+          <div class="cmd-catalog-card">
+            <div class="catalog-header">
+              <h3>🕷️ SPIDER COMMAND SUITES</h3>
+              <p>Explore all 105+ commands. Click any command to test in the live simulator!</p>
+              
+              <div class="catalog-search-box">
+                <span class="search-icon">🔍</span>
+                <input 
+                  type="text" 
+                  id="cmdSearchInput" 
+                  placeholder="Search commands (e.g. spidersense, venom, menu, ping)..." 
+                  oninput="filterCommands(this.value)"
+                />
+              </div>
+
+              <!-- Filter Tags -->
+              <div class="filter-tags" id="filterTags">
+                <button class="filter-tag active" onclick="setCmdCategory('all')">ALL</button>
+                <button class="filter-tag" onclick="setCmdCategory('spiderverse')">SPIDER-VERSE</button>
+                <button class="filter-tag" onclick="setCmdCategory('ai')">AI STUDIO</button>
+                <button class="filter-tag" onclick="setCmdCategory('downloader')">DOWNLOADER</button>
+                <button class="filter-tag" onclick="setCmdCategory('group')">GROUP TOOLS</button>
+                <button class="filter-tag" onclick="setCmdCategory('fun')">FUN & RPG</button>
+                <button class="filter-tag" onclick="setCmdCategory('system')">SYSTEM</button>
+              </div>
+            </div>
+
+            <!-- Command Items List -->
+            <div class="cmd-list-container" id="cmdListContainer">
+              <div class="cmd-loading">Loading loaded command suites...</div>
+            </div>
+          </div>
+
+          <!-- Right: Interactive Terminal Simulator -->
+          <div class="cmd-terminal-card">
+            <div class="terminal-header">
+              <div class="term-dots">
+                <span class="t-dot red"></span>
+                <span class="t-dot yellow"></span>
+                <span class="t-dot green"></span>
+              </div>
+              <div class="term-title">>_ SPIDER-BOT TERMINAL SIMULATOR</div>
+              <button class="term-clear-btn" onclick="clearTerminal()">Clear</button>
+            </div>
+
+            <!-- Quick Run Presets -->
+            <div class="term-quick-chips">
+              <span class="q-label">Try:</span>
+              <button class="q-chip" onclick="simulateCommand('spidersense')">.spidersense</button>
+              <button class="q-chip" onclick="simulateCommand('venom')">.venom</button>
+              <button class="q-chip" onclick="simulateCommand('spidertrivia')">.spidertrivia</button>
+              <button class="q-chip" onclick="simulateCommand('spidersuit')">.spidersuit</button>
+              <button class="q-chip" onclick="simulateCommand('multiverse')">.multiverse</button>
+              <button class="q-chip" onclick="simulateCommand('leapoffaith')">.leapoffaith</button>
+              <button class="q-chip" onclick="simulateCommand('alive')">.alive</button>
+            </div>
+
+            <!-- Terminal Output Window -->
+            <div class="terminal-screen" id="terminalScreen">
+              <div class="term-entry system">
+                <span class="term-prompt">spider-bot@earth-1610:~$</span>
+                <span class="term-text">Spider-Bot Simulator Ready. Type or click any command to execute!</span>
+              </div>
+            </div>
+
+            <!-- Interactive Terminal Prompt Input -->
+            <form class="terminal-input-row" onsubmit="handleTerminalSubmit(event)">
+              <span class="term-prefix">></span>
+              <input 
+                type="text" 
+                id="terminalInput" 
+                placeholder="Type command (e.g. .spidersense or .miles)..." 
+                autocomplete="off" 
+              />
+              <button type="submit" class="term-exec-btn">RUN</button>
+            </form>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- TAB 4: MULTIVERSE HERO DECK -->
+      <section class="tab-pane" id="pane-multiverse">
+        <div class="multiverse-wrapper">
+          <div class="multiverse-header">
+            <h3>🌀 SPIDER-VERSE MULTIVERSE LORE DECK</h3>
+            <p>Access intelligence on the Web of Life and Destiny across alternate Earth dimensions.</p>
+          </div>
+
+          <!-- Hero Selector Carousel / Tabs -->
+          <div class="hero-selector-bar" id="heroSelectorBar">
+            <!-- Dynamically populated / styled -->
+          </div>
+
+          <!-- Hero Spotlight Display -->
+          <div class="hero-spotlight-card" id="heroSpotlightCard">
+            <!-- Dynamically rendered -->
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: LEAP OF FAITH MINI-GAME -->
+      <section class="tab-pane" id="pane-game">
+        <div class="game-wrapper">
+          <div class="game-header-bar">
+            <div class="game-stats">
+              <div class="g-stat"><span class="lbl">SCORE:</span> <span class="val" id="gameScore">0</span></div>
+              <div class="g-stat"><span class="lbl">HIGH SCORE:</span> <span class="val highlight" id="gameHighScore">0</span></div>
+              <div class="g-stat"><span class="lbl">COMBO:</span> <span class="val" id="gameCombo">x1</span></div>
+            </div>
+            
+            <div class="game-actions">
+              <div class="venom-meter-container">
+                <span class="v-label">VENOM:</span>
+                <div class="v-bar-track">
+                  <div class="v-bar-fill" id="venomBarFill" style="width: 0%;"></div>
+                </div>
+                <button class="v-trigger-btn" id="gameVenomBtn" onclick="gameTriggerVenom()" disabled>⚡ BLAST</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Game Canvas Container -->
+          <div class="game-viewport">
+            <canvas id="gameCanvas" width="700" height="380"></canvas>
+            
+            <!-- Game Overlay Start / Game Over -->
+            <div class="game-overlay" id="gameOverOverlay">
+              <div class="overlay-box">
+                <h2 id="overlayTitle">LEAP OF FAITH</h2>
+                <p id="overlaySubtitle">Swing through Brooklyn rooftops! Tap / Click or press Spacebar to shoot webs and swing.</p>
+                <div class="overlay-stats" id="overlayScoreBox" style="display: none;">
+                  <div>Score: <b id="finalScore">0</b></div>
+                  <div>Best: <b id="finalBest">0</b></div>
+                </div>
+                <button class="cyber-btn main-cta" onclick="startGame()">
+                  <span class="btn-spark">🕸️</span> START SWINGING
+                </button>
+                <p class="game-hint">Controls: [Click / Tap / Spacebar] = Shoot Web | [V Key] = Venom Surge</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: SYSTEM TELEMETRY & SERVER LOGS -->
+      <section class="tab-pane" id="pane-telemetry">
+        <div class="telemetry-grid-wrapper">
+          
+          <!-- System Metrics Cards -->
+          <div class="metrics-row">
+            <div class="metric-card">
+              <div class="m-icon">⚡</div>
+              <div class="m-data">
+                <span class="m-label">RAM HEAP USAGE</span>
+                <span class="m-val" id="heapUsageVal">-- MB</span>
+                <div class="m-progress-bar">
+                  <div class="m-progress-fill" id="heapProgressFill" style="width: 0%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="metric-card">
+              <div class="m-icon">⏱️</div>
+              <div class="m-data">
+                <span class="m-label">TOTAL UPTIME</span>
+                <span class="m-val" id="uptimeFullVal">0h 0m 0s</span>
+                <span class="m-sub" id="reconnectSubVal">0 Reconnects</span>
+              </div>
+            </div>
+
+            <div class="metric-card">
+              <div class="m-icon">🌐</div>
+              <div class="m-data">
+                <span class="m-label">WHATSAPP WEBSOCKET</span>
+                <span class="m-val" id="wsStatusVal">DISCONNECTED</span>
+                <span class="m-sub" id="botAuthSubVal">Local Auth</span>
+              </div>
+            </div>
+
+            <div class="metric-card">
+              <div class="m-icon">📦</div>
+              <div class="m-data">
+                <span class="m-label">COMMAND ECOSYSTEM</span>
+                <span class="m-val" id="totalCmdsCountVal">-- Commands</span>
+                <span class="m-sub" id="geminiStatusVal">Gemini AI: Ready</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Streaming Server Logs -->
+          <div class="logs-console-card">
+            <div class="console-header">
+              <div class="c-title">
+                <span class="live-dot pulse"></span>
+                <span>REAL-TIME SYSTEM EVENT STREAM</span>
+              </div>
+
+              <div class="console-filters">
+                <button class="c-filter active" onclick="setLogFilter('all')">ALL</button>
+                <button class="c-filter" onclick="setLogFilter('auth')">AUTH</button>
+                <button class="c-filter" onclick="setLogFilter('cmd')">COMMANDS</button>
+                <button class="c-filter" onclick="setLogFilter('ai')">AI CHAT</button>
+                <button class="c-filter" onclick="setLogFilter('error')">ERRORS</button>
+              </div>
+
+              <div class="console-actions">
+                <button class="c-action-btn" id="pauseLogBtn" onclick="togglePauseLogs()">⏸️ Pause</button>
+                <button class="c-action-btn" onclick="clearLogsView()">🗑️ Clear</button>
+                <button class="c-action-btn" onclick="downloadLogs()">💾 Export</button>
+              </div>
+            </div>
+
+            <!-- Terminal Log Window -->
+            <div class="console-body" id="consoleBody">
+              <div class="log-line system">[SYSTEM] Connecting to real-time log feed...</div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
     <!-- Footer -->
-    <footer class="footer">
-      <p>Miles Morales MD • Recreated from Atlas-MD with Spider-Verse Heart • Earth-1610</p>
+    <footer class="app-footer">
+      <div class="footer-content">
+        <p>🕸️ <b>Miles Morales MD</b> • Earth-1610 Spider-Verse Multi-Device WhatsApp Assistant</p>
+        <p class="sub-footer">"Everyone keeps telling me how my story is supposed to go... nah, I'mma do my own thing."</p>
+      </div>
     </footer>
-  </main>
 
-  <script>
-    let currentCode = "";
+  </div>
 
-    function switchTab(tab) {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-
-      if (tab === 'pair') {
-        document.getElementById('tabPairBtn').classList.add('active');
-        document.getElementById('pairTab').classList.remove('hidden');
-      } else if (tab === 'qr') {
-        document.getElementById('tabQrBtn').classList.add('active');
-        document.getElementById('qrTab').classList.remove('hidden');
-        fetchQR();
-      } else if (tab === 'features') {
-        document.getElementById('tabFeaturesBtn').classList.add('active');
-        document.getElementById('featuresTab').classList.remove('hidden');
-      }
-    }
-
-    async function fetchStatus() {
-      try {
-        const res = await fetch('/api/status');
-        const data = await res.json();
-        const dot = document.getElementById('statusDot');
-        const text = document.getElementById('statusText');
-
-        document.getElementById('uptimeVal').innerText = data.uptime || '0s';
-        document.getElementById('suitesVal').innerText = (data.commandsCount || 0) + ' suites';
-
-        if (data.status === 'open') {
-          dot.className = 'status-dot online';
-          text.innerText = 'ONLINE // CONNECTED';
-        } else if (data.status === 'qr') {
-          dot.className = 'status-dot waiting';
-          text.innerText = 'WAITING FOR SCAN';
-        } else if (data.status === 'connecting') {
-          dot.className = 'status-dot pulse';
-          text.innerText = 'CONNECTING...';
-        } else {
-          dot.className = 'status-dot offline';
-          text.innerText = data.status.toUpperCase();
-        }
-      } catch (err) {}
-    }
-
-    async function fetchQR() {
-      try {
-        const res = await fetch('/api/qr');
-        const data = await res.json();
-        const img = document.getElementById('qrImage');
-        const placeholder = document.getElementById('qrPlaceholder');
-
-        if (data.status === 'connected') {
-          placeholder.innerHTML = '<span>✅ Bot is already connected!</span>';
-          img.classList.add('hidden');
-          placeholder.classList.remove('hidden');
-        } else if (data.status === 'qr' && data.qr) {
-          img.src = data.qr;
-          img.classList.remove('hidden');
-          placeholder.classList.add('hidden');
-        } else {
-          img.classList.add('hidden');
-          placeholder.classList.remove('hidden');
-        }
-      } catch (err) {}
-    }
-
-    async function handlePairSubmit(e) {
-      e.preventDefault();
-      const phone = document.getElementById('phoneInput').value.trim();
-      const btn = document.getElementById('submitPairBtn');
-      const codeBox = document.getElementById('codeBox');
-      const codeDisplay = document.getElementById('codeDisplay');
-
-      btn.disabled = true;
-      btn.querySelector('.btn-label').innerText = 'GENERATING CODE...';
-
-      try {
-        const res = await fetch('/api/pair', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone }),
-        });
-        const data = await res.json();
-
-        if (data.code) {
-          currentCode = data.code;
-          codeDisplay.innerText = data.code;
-          codeBox.classList.remove('hidden');
-        } else {
-          alert(data.error || 'Failed to generate pairing code. Please try again.');
-        }
-      } catch (err) {
-        alert('Error: ' + err.message);
-      } finally {
-        btn.disabled = false;
-        btn.querySelector('.btn-label').innerText = 'GET PAIRING CODE';
-      }
-    }
-
-    function copyCode() {
-      if (!currentCode) return;
-      navigator.clipboard.writeText(currentCode);
-      const copyBtn = document.getElementById('copyBtn');
-      copyBtn.innerText = '✅ COPIED!';
-      setTimeout(() => { copyBtn.innerText = '📋 COPY CODE'; }, 2000);
-    }
-
-    setInterval(fetchStatus, 3000);
-    setInterval(() => {
-      if (!document.getElementById('qrTab').classList.contains('hidden')) {
-        fetchQR();
-      }
-    }, 4000);
-    fetchStatus();
-  </script>
+  <!-- Audio Context & Interactive Script -->
+  <script src="app.js"></script>
 </body>
 </html>
