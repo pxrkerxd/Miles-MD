@@ -1,17 +1,17 @@
 <p align="center">
-  <img src="https://images.alphacoders.com/978/978824.jpg" width="100%" alt="Miles Morales Spider-Verse Banner">
+  <img src="https://images6.alphacoders.com/138/thumb-1920-1380262.jpg" width="100%" alt="Miles Morales Spider-Verse Banner">
 </p>
 
 <h1 align="center">🕷️ Miles Morales MD (Earth-1610)</h1>
 
 <p align="center">
-  <i>The Ultimate Spider-Verse WhatsApp Multi-Device Bot — Inspired by Atlas-MD, rebuilt with Brooklyn swag, 20 Spider-Verse Characters, Triple AI, and Dual Auth.</i>
+  <i>The Ultimate Spider-Verse WhatsApp Multi-Device Bot — Rebuilt with authentic Brooklyn swag, Miles Morales lore, Gemini AI Chatbot, and Dual Auth.</i>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Theme-Miles%20Morales-E50914?style=for-the-badge&logo=marvel" alt="Theme">
   <img src="https://img.shields.io/badge/Baileys-Multi--Device-00F0FF?style=for-the-badge" alt="Baileys">
-  <img src="https://img.shields.io/badge/AI-Gemini%20%7C%20GPT-FFDF00?style=for-the-badge" alt="AI">
+  <img src="https://img.shields.io/badge/AI-Gemini%202.5%20Flash-FFDF00?style=for-the-badge" alt="AI">
   <img src="https://img.shields.io/badge/Auth-Dual%20(Local%20%2B%20Mongo)-green?style=for-the-badge" alt="Auth">
 </p>
 
@@ -21,13 +21,12 @@
 
 | Feature | Details |
 | :--- | :--- |
-| 🕷️ **Miles Morales Persona** | Authentic Brooklyn slang, Spider-Verse lore, graffiti & lo-fi vibes powered by Gemini / GPT |
-| 🌀 **20 Spider-Verse Characters** | Switch active character anytime (`.setchar 0-19`): Miles, Spider-Gwen, 2099, Spider-Punk, Pavitr, Noir, etc. |
-| ⚡ **Signature Spider Abilities** | `.spidersense`, `.venom`, `.camouflage`, `.leapoffaith`, `.canon`, `.punk`, `.chai` |
+| 🕷️ **Miles Morales Persona** | Authentic Brooklyn dialogue, Spider-Verse lore, graffiti & lo-fi vibes powered by Gemini AI |
+| ⚡ **Signature Spider Abilities** | `/miles`, `/spidersense`, `/venom`, `/camouflage`, `/leapoffaith`, `/canon`, `/punk`, `/chai` |
 | 📱 **Spider-Verse Web Dashboard** | Modern dark halftone dashboard with QR code scanner and instant 8-digit phone pairing code (`/api/pair`) |
 | 🔐 **Dual Authentication** | Works 100% locally out-of-the-box (`./Session`), or syncs to MongoDB Cloud for 24/7 hostings |
 | 📥 **Universal Downloader** | YouTube (Audio/Video), TikTok, Instagram, Twitter/X, Facebook, Spotify, Pinterest |
-| 🎨 **Sticker Studio** | Image/Video to WebP stickers, meme stickers, `.take` rebranding, sticker-to-image/video converters |
+| 🎨 **Sticker & Media Studio** | Image/Video to WebP stickers, meme stickers, `/take` rebranding, sticker converters |
 | 🛡️ **Group Defense** | Anti-link detection, automated welcome/goodbye, kick, promote, demote, tagall, mute/unmute |
 | 🔍 **Multiverse Search** | Google, Wikipedia summaries, song lyrics, weather radar, GitHub profiles, wallpapers |
 
