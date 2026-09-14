@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Miles Morales MD - Spider-Verse WhatsApp Bot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@300;400;600;800;900&family=Permanent+Marker&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="halftone-overlay"></div>
+  <div class="glitch-grid"></div>
+
+  <main class="dashboard-wrapper">
+    <!-- Header Section -->
+    <header class="hero-header">
+      <div class="spider-badge">EARTH-1610 // BROOKLYN NY</div>
+      <h1 class="glitch-title" data-text="MILES MORALES MD">MILES MORALES MD</h1>
+      <p class="tagline">"Anyone can wear the mask. It's how you wear it that counts."</p>
+      
+      <div class="status-bar">
+        <div class="status-pill" id="statusPill">
+          <span class="status-dot pulse" id="statusDot"></span>
+          <span class="status-text" id="statusText">CONNECTING...</span>
+        </div>
+        <div class="telemetry-pill">
+          <span class="label">UPTIME:</span>
+          <span class="val" id="uptimeVal">0h 0m 0s</span>
+        </div>
+        <div class="telemetry-pill">
+          <span class="label">SUITES:</span>
+          <span class="val" id="suitesVal">Loading...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Interactive Card -->
+    <section class="main-card">
+      <div class="card-glow"></div>
+      
+      <!-- Navigation Tabs -->
+      <nav class="auth-tabs">
+        <button class="tab-btn active" id="tabPairBtn" onclick="switchTab('pair')">
+          ⚡ PAIRING CODE
+        </button>
+        <button class="tab-btn" id="tabQrBtn" onclick="switchTab('qr')">
+          📷 QR CODE SCAN
+        </button>
+        <button class="tab-btn" id="tabFeaturesBtn" onclick="switchTab('features')">
+          🕷️ SPIDER FEATURES
+        </button>
+      </nav>
+
+      <!-- Tab 1: Pairing Code -->
+      <div class="tab-content" id="pairTab">
+        <div class="pair-box">
+          <h3>LINK VIA PHONE NUMBER</h3>
+          <p class="sub-instructions">Enter your WhatsApp phone number with international country code (no + or spaces).</p>
+          
+          <form id="pairForm" onsubmit="handlePairSubmit(event)">
+            <div class="input-group">
+              <span class="input-prefix">📞</span>
+              <input 
+                type="tel" 
+                id="phoneInput" 
+                placeholder="e.g. 14155552671 or 919876543210" 
+                required 
+                autocomplete="off"
+              />
+            </div>
+            <button type="submit" class="cta-button" id="submitPairBtn">
+              <span class="btn-glitch"></span>
+              <span class="btn-label">GET PAIRING CODE</span>
+            </button>
+          </form>
+
+          <div class="code-result-box hidden" id="codeBox">
+            <span class="code-label">YOUR 8-DIGIT PAIRING CODE:</span>
+            <div class="code-display" id="codeDisplay">---- ----</div>
+            <button class="copy-btn" id="copyBtn" onclick="copyCode()">
+              📋 COPY CODE
+            </button>
+            <p class="code-instructions">Open WhatsApp on your phone ➔ <b>Linked Devices</b> ➔ <b>Link with phone number instead</b> ➔ Enter this code.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: QR Scanner -->
+      <div class="tab-content hidden" id="qrTab">
+        <div class="qr-box">
+          <h3>SCAN SPIDER-CODE</h3>
+          <p class="sub-instructions">Open WhatsApp ➔ <b>Settings / Menu</b> ➔ <b>Linked Devices</b> ➔ <b>Link a Device</b>.</p>
+          
+          <div class="qr-frame">
+            <div class="qr-scanner-line"></div>
+            <img id="qrImage" src="" alt="WhatsApp QR Code" class="qr-img hidden">
+            <div class="qr-placeholder" id="qrPlaceholder">
+              <div class="spinner"></div>
+              <span>Generating Spider QR...</span>
+            </div>
+          </div>
+          <p class="qr-timer">Auto-refreshes every 5 seconds until scanned.</p>
+        </div>
+      </div>
+
+      <!-- Tab 3: Spider Features Preview -->
+      <div class="tab-content hidden" id="featuresTab">
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="f-icon">⚡</div>
+            <h4>Venom Blast AI</h4>
+            <p>Direct chat with Miles Morales powered by Gemini AI with authentic Brooklyn personality.</p>
+          </div>
+          <div class="feature-card">
+            <div class="f-icon">🌀</div>
+            <h4>20 Multiverse Characters</h4>
+            <p>Switch between Miles, Spider-Gwen, Miguel 2099, Spider-Punk, Pavitr, Noir, and 14 others.</p>
+          </div>
+          <div class="feature-card">
+            <div class="f-icon">📥</div>
+            <h4>Media Downloader</h4>
+            <p>Download HD videos & audio from YouTube, TikTok, Instagram, Twitter, and Spotify.</p>
+          </div>
+          <div class="feature-card">
+            <div class="f-icon">🔖</div>
+            <h4>Sticker Workshop</h4>
+            <p>Turn photos & videos into high-quality WhatsApp stickers with custom Spider pack metadata.</p>
+          </div>
+          <div class="feature-card">
+            <div class="f-icon">🛡️</div>
+            <h4>Group Protection</h4>
+            <p>Anti-link defense, welcome messages, tagall, mute, promote, demote, and admin commands.</p>
+          </div>
+          <div class="feature-card">
+            <div class="f-icon">🕸️</div>
+            <h4>Spider-Sense Alert</h4>
+            <p>Custom thematic commands: .spidersense, .venom, .leapoffaith, and .canon events!</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>Miles Morales MD • Recreated from Atlas-MD with Spider-Verse Heart • Earth-1610</p>
+    </footer>
+  </main>
+
+  <script>
+    let currentCode = "";
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+
+      if (tab === 'pair') {
+        document.getElementById('tabPairBtn').classList.add('active');
+        document.getElementById('pairTab').classList.remove('hidden');
+      } else if (tab === 'qr') {
+        document.getElementById('tabQrBtn').classList.add('active');
+        document.getElementById('qrTab').classList.remove('hidden');
+        fetchQR();
+      } else if (tab === 'features') {
+        document.getElementById('tabFeaturesBtn').classList.add('active');
+        document.getElementById('featuresTab').classList.remove('hidden');
+      }
+    }
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        const dot = document.getElementById('statusDot');
+        const text = document.getElementById('statusText');
+
+        document.getElementById('uptimeVal').innerText = data.uptime || '0s';
+        document.getElementById('suitesVal').innerText = (data.commandsCount || 0) + ' suites';
+
+        if (data.status === 'open') {
+          dot.className = 'status-dot online';
+          text.innerText = 'ONLINE // CONNECTED';
+        } else if (data.status === 'qr') {
+          dot.className = 'status-dot waiting';
+          text.innerText = 'WAITING FOR SCAN';
+        } else if (data.status === 'connecting') {
+          dot.className = 'status-dot pulse';
+          text.innerText = 'CONNECTING...';
+        } else {
+          dot.className = 'status-dot offline';
+          text.innerText = data.status.toUpperCase();
+        }
+      } catch (err) {}
+    }
+
+    async function fetchQR() {
+      try {
+        const res = await fetch('/api/qr');
+        const data = await res.json();
+        const img = document.getElementById('qrImage');
+        const placeholder = document.getElementById('qrPlaceholder');
+
+        if (data.status === 'connected') {
+          placeholder.innerHTML = '<span>✅ Bot is already connected!</span>';
+          img.classList.add('hidden');
+          placeholder.classList.remove('hidden');
+        } else if (data.status === 'qr' && data.qr) {
+          img.src = data.qr;
+          img.classList.remove('hidden');
+          placeholder.classList.add('hidden');
+        } else {
+          img.classList.add('hidden');
+          placeholder.classList.remove('hidden');
+        }
+      } catch (err) {}
+    }
+
+    async function handlePairSubmit(e) {
+      e.preventDefault();
+      const phone = document.getElementById('phoneInput').value.trim();
+      const btn = document.getElementById('submitPairBtn');
+      const codeBox = document.getElementById('codeBox');
+      const codeDisplay = document.getElementById('codeDisplay');
+
+      btn.disabled = true;
+      btn.querySelector('.btn-label').innerText = 'GENERATING CODE...';
+
+      try {
+        const res = await fetch('/api/pair', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone }),
+        });
+        const data = await res.json();
+
+        if (data.code) {
+          currentCode = data.code;
+          codeDisplay.innerText = data.code;
+          codeBox.classList.remove('hidden');
+        } else {
+          alert(data.error || 'Failed to generate pairing code. Please try again.');
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.querySelector('.btn-label').innerText = 'GET PAIRING CODE';
+      }
+    }
+
+    function copyCode() {
+      if (!currentCode) return;
+      navigator.clipboard.writeText(currentCode);
+      const copyBtn = document.getElementById('copyBtn');
+      copyBtn.innerText = '✅ COPIED!';
+      setTimeout(() => { copyBtn.innerText = '📋 COPY CODE'; }, 2000);
+    }
+
+    setInterval(fetchStatus, 3000);
+    setInterval(() => {
+      if (!document.getElementById('qrTab').classList.contains('hidden')) {
+        fetchQR();
+      }
+    }, 4000);
+    fetchStatus();
+  </script>
+</body>
+</html>

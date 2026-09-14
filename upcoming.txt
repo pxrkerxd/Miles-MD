@@ -1,0 +1,2 @@
+1. start cmd for only those groups i allow
+2. set personas, fix that, and gifs reactions change for that persona
