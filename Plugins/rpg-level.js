@@ -1,4 +1,4 @@
-import { getUserRPG, claimDaily, getLeaderboard, addXP } from "../System/MongoDB/MongoDb_Core.js";
+import { getUserRPG, claimDaily, getLeaderboard, addXP, addTokens } from "../System/MongoDB/MongoDb_Core.js";
 
 let commands = ["rank", "level", "lvl", "daily", "claim", "leaderboard", "top", "gamble", "bet", "tokens"];
 
@@ -132,13 +132,13 @@ export default {
 
         let newTokens;
         if (win) {
-          newTokens = user.tokens + amount;
+          newTokens = await addTokens(senderNumber, amount);
           await addXP(senderNumber, 25);
           return m.reply(
             `🎲 *SPIDER-DICE RESULT: ${roll}* (WIN!)\n🎉 You won \`+${amount}\` Spider-Tokens!\n💰 *Balance:* ${newTokens} Tokens`
           );
         } else {
-          newTokens = Math.max(0, user.tokens - amount);
+          newTokens = await addTokens(senderNumber, -amount);
           return m.reply(
             `🎲 *SPIDER-DICE RESULT: ${roll}* (LOST)\n💥 You lost \`-${amount}\` Spider-Tokens.\n💰 *Balance:* ${newTokens} Tokens`
           );

@@ -320,6 +320,25 @@ export async function addXP(userId, xpAmount = 15) {
   return { newXP, newLevel, leveledUp };
 }
 
+export async function addTokens(userId, tokenAmount = 0) {
+  const current = await getUserRPG(userId);
+  const newTokens = Math.max(0, (current.tokens || 100) + tokenAmount);
+  if (isMongoActive() && userData) {
+    await userData.findOneAndUpdate(
+      { id: userId },
+      { $set: { tokens: newTokens } },
+      { upsert: true }
+    );
+  } else {
+    localData.users[userId] = {
+      ...(localData.users[userId] || {}),
+      tokens: newTokens,
+    };
+    saveLocalData(localData);
+  }
+  return newTokens;
+}
+
 export async function claimDaily(userId) {
   const current = await getUserRPG(userId);
   const now = new Date();

@@ -90,6 +90,7 @@ Miles Morales MD is custom-tuned to reflect **Miles Morales (Earth-1610)** — w
 - **Moderation:** `/mode <public/private/self>`, `/ban`, `/unban`, `/pmchatbot on/off`, `/groupchatbot on/off`
 - **Search & Radar:** `/google <query>`, `/wiki <query>`, `/weather <city>`, `/lyrics <song>`, `/github <user>`, `/wallpaper <query>`
 - **Fun & Games:** `/roast`, `/ship`, `/8ball`, `/coinflip`, `/dice`, `/quote`, `/truth`, `/dare`
+- **Interactive Games & Arcade:** `/ttt <1-9>` (or `/ttt @user`), `/roulette [bet]`, `/hangman <letter/word>`, `/wordle <word>`, `/riddle [hint/answer]`, `/emojiquiz [hint/answer]`, `/trivia [A/B/C/D]`
 - **Tools & Converters:** `/profile` (or `/p`), `/tts <text>`, `/qr <text>`, `/calc <math>`, `/shorturl <url>`, `/tomp3`
 
 ---
