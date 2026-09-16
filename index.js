@@ -20,6 +20,7 @@ import { Boom } from "@hapi/boom";
 import { readcommands, commands } from "./System/ReadCommands.js";
 import Core from "./Core.js";
 import MongoAuth from "./System/MongoAuth/MongoAuth.js";
+import { serialize } from "./System/whatsapp.js";
 import {
   checkWelcome,
   getGroupSettings,
