@@ -225,13 +225,18 @@ const getGroupProp = async (groupId, prop) => {
   if (groupCache.has(groupId) && groupCache.get(groupId)[prop] !== undefined) {
     return groupCache.get(groupId)[prop];
   }
+  const defaultVal = prop === "allowed" ? true : false;
   if (isMongoActive() && groupData) {
     const g = await groupData.findOne({ id: groupId });
-    const val = g?.[prop] || false;
+    const val = g?.[prop] !== undefined ? g[prop] : defaultVal;
     groupCache.set(groupId, { ...(groupCache.get(groupId) || {}), [prop]: val });
     return val;
   }
-  return localData.groups[groupId]?.[prop] || false;
+  const val =
+    localData.groups[groupId]?.[prop] !== undefined
+      ? localData.groups[groupId][prop]
+      : defaultVal;
+  return val;
 };
 
 const setGroupProp = async (groupId, prop, val) => {

@@ -132,17 +132,25 @@ export const serialize = (client, m) => {
 
   m.download = (pathFile) => downloadMediaMessage(m.msg || m.message, pathFile);
 
-  m.reply = (text, chatId = m.from, options = {}) => {
+  m.reply = async (text, chatId = m.from, options = {}) => {
     if (typeof chatId === "object" && chatId !== null) {
       options = chatId;
       chatId = m.from;
     }
     if (Buffer.isBuffer(text)) {
-      return client.sendMessage(
-        chatId,
-        { document: text, mimetype: "application/octet-stream", ...options },
-        { quoted: m }
-      );
+      try {
+        return await client.sendMessage(
+          chatId,
+          { document: text, mimetype: "application/octet-stream", ...options },
+          { quoted: m }
+        );
+      } catch {
+        return await client.sendMessage(chatId, {
+          document: text,
+          mimetype: "application/octet-stream",
+          ...options,
+        });
+      }
     }
     const strText = String(text);
     const textMentions = [...strText.matchAll(/@([0-9]{5,16})/g)].map(
@@ -151,15 +159,23 @@ export const serialize = (client, m) => {
     const mergedMentions = Array.from(
       new Set([...(options.mentions || []), ...textMentions])
     );
-    return client.sendMessage(
-      chatId,
-      {
+    try {
+      return await client.sendMessage(
+        chatId,
+        {
+          text: strText,
+          ...options,
+          ...(mergedMentions.length > 0 ? { mentions: mergedMentions } : {}),
+        },
+        { quoted: m }
+      );
+    } catch {
+      return await client.sendMessage(chatId, {
         text: strText,
         ...options,
         ...(mergedMentions.length > 0 ? { mentions: mergedMentions } : {}),
-      },
-      { quoted: m }
-    );
+      });
+    }
   };
 
   return m;
