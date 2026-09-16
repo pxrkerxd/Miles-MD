@@ -1,7 +1,28 @@
+import fs from "fs";
+import path from "path";
+import { exec } from "child_process";
+import util from "util";
+import ffmpegStatic from "ffmpeg-static";
 import googleTTS from "google-tts-api";
 import qrcode from "qrcode";
 import axios from "axios";
 import { getUserRPG, getWarn, checkMod } from "../System/MongoDB/MongoDb_Core.js";
+
+const execAsync = util.promisify(exec);
+
+const toOpusVoiceNote = async (mp3Buffer) => {
+  const tmpIn = path.join(process.cwd(), `tts_in_${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`);
+  const tmpOut = path.join(process.cwd(), `tts_out_${Date.now()}_${Math.random().toString(36).slice(2)}.opus`);
+  try {
+    fs.writeFileSync(tmpIn, mp3Buffer);
+    await execAsync(`"${ffmpegStatic}" -y -i "${tmpIn}" -c:a libopus -b:a 64k -vn "${tmpOut}"`);
+    const opusBuffer = fs.readFileSync(tmpOut);
+    return opusBuffer;
+  } finally {
+    if (fs.existsSync(tmpIn)) fs.unlinkSync(tmpIn);
+    if (fs.existsSync(tmpOut)) fs.unlinkSync(tmpOut);
+  }
+};
 
 let commands = ["profile", "p", "userprofile", "tts", "say", "qr", "qrcode", "calc", "calculate", "shorturl"];
 
@@ -148,13 +169,22 @@ export default {
             slow: false,
             timeout: 10000,
           });
-          const audioBuffer = Buffer.from(base64, "base64");
+          const rawMp3 = Buffer.from(base64, "base64");
 
-          return await SpiderBot.sendMessage(
-            m.from,
-            { audio: audioBuffer, mimetype: "audio/mp4", ptt: true },
-            { quoted: m }
-          );
+          try {
+            const opusBuffer = await toOpusVoiceNote(rawMp3);
+            return await SpiderBot.sendMessage(
+              m.from,
+              { audio: opusBuffer, mimetype: "audio/ogg; codecs=opus", ptt: true },
+              { quoted: m }
+            );
+          } catch (ffErr) {
+            return await SpiderBot.sendMessage(
+              m.from,
+              { audio: rawMp3, mimetype: "audio/mpeg", fileName: "voice.mp3" },
+              { quoted: m }
+            );
+          }
         } catch (err) {
           try {
             const base64 = await googleTTS.getAudioBase64(content.slice(0, 300), {
@@ -162,10 +192,10 @@ export default {
               slow: false,
               timeout: 10000,
             });
-            const audioBuffer = Buffer.from(base64, "base64");
+            const rawMp3 = Buffer.from(base64, "base64");
             return await SpiderBot.sendMessage(
               m.from,
-              { audio: audioBuffer, mimetype: "audio/mp4", ptt: true },
+              { audio: rawMp3, mimetype: "audio/mpeg", fileName: "voice.mp3" },
               { quoted: m }
             );
           } catch (e) {
