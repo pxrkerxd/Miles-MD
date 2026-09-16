@@ -51,6 +51,7 @@ const groupSchema = new mongoose.Schema({
   chatBot: { type: Boolean, default: false },
   bangroup: { type: Boolean, default: false },
   nsfw: { type: Boolean, default: false },
+  allowed: { type: Boolean, default: true },
 });
 
 const systemSchema = new mongoose.Schema({
@@ -270,6 +271,55 @@ export const delAutosticker = (gId) => setGroupProp(gId, "autosticker", false);
 export const setNSFW = (gId) => setGroupProp(gId, "nsfw", true);
 export const checkNSFW = (gId) => getGroupProp(gId, "nsfw");
 export const delNSFW = (gId) => setGroupProp(gId, "nsfw", false);
+
+export const setGroupAllowed = (gId, val = true) => setGroupProp(gId, "allowed", val);
+export const checkGroupAllowed = async (gId) => {
+  const val = await getGroupProp(gId, "allowed");
+  return val === undefined ? true : val;
+};
+
+export async function getGroupSettings(groupId) {
+  if (isMongoActive() && groupData) {
+    const g = await groupData.findOne({ id: groupId });
+    return {
+      antilink: g?.antilink || false,
+      welcome: g?.switchWelcome || false,
+      autosticker: g?.autosticker || false,
+      chatbot: g?.chatBot || false,
+      antidelete: g?.antidelete || false,
+      allowed: g?.allowed !== false,
+      bangroup: g?.bangroup || false,
+    };
+  }
+  const g = localData.groups[groupId] || {};
+  return {
+    antilink: g.antilink || false,
+    welcome: g.switchWelcome || false,
+    autosticker: g.autosticker || false,
+    chatbot: g.chatBot || false,
+    antidelete: g.antidelete || false,
+    allowed: g.allowed !== false,
+    bangroup: g.bangroup || false,
+  };
+}
+
+export async function updateGroupSetting(groupId, setting, value) {
+  const propMap = {
+    antilink: "antilink",
+    welcome: "switchWelcome",
+    switchWelcome: "switchWelcome",
+    autosticker: "autosticker",
+    chatbot: "chatBot",
+    chatBot: "chatBot",
+    antidelete: "antidelete",
+    allowed: "allowed",
+    bangroup: "bangroup",
+    nsfw: "nsfw",
+  };
+  const prop = propMap[setting] || setting;
+  await setGroupProp(groupId, prop, Boolean(value));
+  return { success: true, groupId, setting, value: Boolean(value) };
+}
 
 // ==================== SPIDER-VERSE RPG & LEVELING ====================
 

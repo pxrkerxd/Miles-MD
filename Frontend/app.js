@@ -368,12 +368,12 @@ function switchMainTab(tabId) {
   if (activeTabBtn) activeTabBtn.classList.add('active');
   if (activePane) activePane.classList.add('active');
 
-  if (tabId === 'multiverse') {
+  if (tabId === 'groups') {
+    fetchGroups();
+  } else if (tabId === 'multiverse') {
     renderMultiverseDeck();
   } else if (tabId === 'simulator') {
     fetchCommandsCatalog();
-  } else if (tabId === 'game') {
-    initGameCanvas();
   }
 }
 
@@ -538,7 +538,10 @@ async function fetchStatusAndTelemetry() {
     const upS = upSec % 60;
     document.getElementById('uptimeVal').innerText = `${upH}h ${upM}m ${upS}s`;
     document.getElementById('suitesVal').innerText = `${data.bot?.suitesCount || 0} suites`;
-    document.getElementById('prefixVal').innerText = data.bot?.prefix || '/';
+    if (data.bot?.prefix) {
+      currentBotPrefix = data.bot.prefix;
+    }
+    document.getElementById('prefixVal').innerText = currentBotPrefix || data.bot?.prefix || '/';
 
     // Latency simulation / live
     const lat = Math.floor(Math.random() * 10) + 12;
@@ -705,11 +708,15 @@ function clearChatHistory() {
 // --- Command Catalog & Terminal Simulator ---
 let allCommandsData = [];
 let activeCmdCategory = 'all';
+let currentBotPrefix = '/';
 
 async function fetchCommandsCatalog() {
   try {
     const res = await fetch('/api/commands');
     const data = await res.json();
+    if (data.prefix) {
+      currentBotPrefix = data.prefix;
+    }
     if (data.suites) {
       allCommandsData = data.suites;
       renderCommandsList();
@@ -762,18 +769,19 @@ function renderCommandsList(searchQuery = '') {
     return;
   }
 
+  const p = currentBotPrefix || '/';
   container.innerHTML = filtered
     .map((s) => {
       const primaryCmd = s.uniquecommands?.[0] || s.aliases?.[0] || s.name;
       const aliasesPills = (s.aliases || [])
         .slice(0, 5)
-        .map((a) => `<span class="alias-badge">.${a}</span>`)
+        .map((a) => `<span class="alias-badge">${p}${a}</span>`)
         .join('');
 
       return `
       <div class="cmd-item-card" onclick="simulateCommand('${primaryCmd}')">
         <div class="cmd-info">
-          <h5>.${primaryCmd} (${s.name})</h5>
+          <h5>${p}${primaryCmd} (${s.name})</h5>
           <p>${escapeHtml(s.description)}</p>
           <div class="cmd-aliases">${aliasesPills}</div>
         </div>
@@ -790,12 +798,13 @@ async function simulateCommand(cmdName) {
   const screen = document.getElementById('terminalScreen');
   if (!screen) return;
 
-  const cleanCmd = cmdName.replace(/^[\.\/\!\#]/, '').trim();
+  const cleanCmd = cmdName.replace(/^\//, '').trim();
+  const p = currentBotPrefix || '/';
 
   // Append user input line
   const userLine = document.createElement('div');
   userLine.className = 'term-entry user';
-  userLine.innerHTML = `<span class="term-prompt">spider-bot@earth-1610:~$</span> .${escapeHtml(cleanCmd)}`;
+  userLine.innerHTML = `<span class="term-prompt">spider-bot@earth-1610:~$</span> ${p}${escapeHtml(cleanCmd)}`;
   screen.appendChild(userLine);
   screen.scrollTop = screen.scrollHeight;
 
@@ -946,6 +955,7 @@ function renderMultiverseDeck() {
   ).join('');
 
   const hero = HEROES_LORE.find((h) => h.id === selectedHeroId) || HEROES_LORE[0];
+  const charIdx = HEROES_LORE.indexOf(hero);
 
   card.innerHTML = `
     <div class="hero-visual">
@@ -954,9 +964,14 @@ function renderMultiverseDeck() {
         <h4>${hero.name}</h4>
         <span class="hero-earth-tag">${hero.heroName} // ${hero.earth}</span>
       </div>
-      <button class="action-pill-btn" onclick="spawnComicBadge('${hero.name.toUpperCase()}!')">
-        ⚡ Multiverse Voiceline
-      </button>
+      <div class="hero-action-buttons">
+        <button class="action-pill-btn activate-persona-btn" onclick="activatePersona(${charIdx}, '${hero.name}')">
+          ⚡ ACTIVATE PERSONA ON BOT
+        </button>
+        <button class="action-pill-btn" onclick="spawnComicBadge('${hero.name.toUpperCase()}!')">
+          🔊 Multiverse Voiceline
+        </button>
+      </div>
     </div>
 
     <div class="hero-lore">
@@ -973,6 +988,25 @@ function renderMultiverseDeck() {
       </div>
     </div>
   `;
+}
+
+async function activatePersona(charIndex, charName) {
+  playVenomZapSound();
+  try {
+    const res = await fetch('/api/set-persona', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ charId: String(charIndex) }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`🕷️ Bot Persona set to ${charName}!`);
+      spawnComicBadge(`${charName.toUpperCase()} ACTIVE!`);
+      renderMultiverseDeck();
+    }
+  } catch (err) {
+    showToast(`⚠️ Failed to set persona: ${err.message}`);
+  }
 }
 
 function renderStatBar(label, val) {
@@ -993,323 +1027,291 @@ function selectHero(heroId) {
   renderMultiverseDeck();
 }
 
-// --- Leap of Faith Mini-Game Engine (60fps Canvas) ---
-let gameCanvas = null;
-let gameCtx = null;
-let gameRunning = false;
-let gameLoopId = null;
-let score = 0;
-let highScore = parseInt(localStorage.getItem('miles_high_score') || '0', 10);
-let combo = 1;
-let venomCharge = 0;
+// ==========================================================================
+// 🎛️ VISUAL GROUP COMMAND HUB ENGINE
+// ==========================================
+let cachedGroups = [];
+let currentGroupFilter = 'all';
+let groupSearchQuery = '';
+let isFetchingGroups = false;
 
-let milesObj = {
-  x: 100,
-  y: 150,
-  vy: 0,
-  radius: 14,
-  isSwinging: false,
-  webAnchor: { x: 0, y: 0 },
-};
+async function fetchGroups(isManual = false) {
+  if (isFetchingGroups) return;
+  isFetchingGroups = true;
 
-let buildings = [];
-let collectibles = [];
-let hazards = [];
+  const countEl = document.getElementById('hubTotalGroupsCount');
+  const modeEl = document.getElementById('hubBotModeVal');
+  const badgeEl = document.getElementById('groupsNavBadge');
 
-function initGameCanvas() {
-  gameCanvas = document.getElementById('gameCanvas');
-  if (!gameCanvas) return;
-  gameCtx = gameCanvas.getContext('2d');
-  document.getElementById('gameHighScore').innerText = highScore;
+  if (isManual) {
+    playClickSound();
+    showToast('🔄 Scanning WhatsApp groups...');
+  }
 
-  // Bind Canvas & Keyboard Controls
-  window.removeEventListener('keydown', handleGameKey);
-  window.addEventListener('keydown', handleGameKey);
+  try {
+    const res = await fetch('/api/groups');
+    const data = await res.json();
 
-  gameCanvas.onmousedown = handleGameActionStart;
-  gameCanvas.onmouseup = handleGameActionEnd;
-  gameCanvas.ontouchstart = (e) => { e.preventDefault(); handleGameActionStart(); };
-  gameCanvas.ontouchend = (e) => { e.preventDefault(); handleGameActionEnd(); };
-}
+    cachedGroups = data.groups || [];
+    const total = cachedGroups.length;
 
-function handleGameKey(e) {
-  if (e.code === 'Space') {
-    e.preventDefault();
-    if (!gameRunning) startGame();
-    else milesObj.isSwinging = true;
-  } else if (e.code === 'KeyV') {
-    gameTriggerVenom();
+    if (countEl) countEl.innerText = `${total} Groups`;
+    if (modeEl && data.botMode) modeEl.innerText = data.botMode.toUpperCase();
+    if (badgeEl) badgeEl.innerText = `${total} LIVE`;
+
+    renderGroupHub(data.connected);
+
+    if (isManual) {
+      playVenomZapSound();
+      showToast(`✅ Synced ${total} WhatsApp groups!`);
+    }
+  } catch (err) {
+    console.error('Failed to fetch groups:', err);
+    if (isManual) showToast('⚠️ Could not connect to bot group service');
+    renderGroupHub(false);
+  } finally {
+    isFetchingGroups = false;
   }
 }
 
-window.addEventListener('keyup', (e) => {
-  if (e.code === 'Space') {
-    milesObj.isSwinging = false;
-  }
-});
-
-function handleGameActionStart() {
-  if (!gameRunning) startGame();
-  else milesObj.isSwinging = true;
+function filterGroupsList(query) {
+  groupSearchQuery = (query || '').toLowerCase().trim();
+  renderGroupHub(true);
 }
 
-function handleGameActionEnd() {
-  milesObj.isSwinging = false;
+function setGroupFilter(filterKey) {
+  playClickSound();
+  currentGroupFilter = filterKey;
+  document.querySelectorAll('.filter-chip').forEach((chip) => chip.classList.remove('active'));
+  const activeChip = document.getElementById(`chip-filter-${filterKey}`);
+  if (activeChip) activeChip.classList.add('active');
+  renderGroupHub(true);
 }
 
-function startGame() {
-  playThwipSound();
-  gameRunning = true;
-  score = 0;
-  combo = 1;
-  venomCharge = 0;
-  milesObj.x = 120;
-  milesObj.y = 150;
-  milesObj.vy = 0;
-  milesObj.isSwinging = false;
+function renderGroupHub(isConnected = true) {
+  const container = document.getElementById('groupCardsGrid');
+  if (!container) return;
 
-  buildings = [];
-  collectibles = [];
-  hazards = [];
-
-  // Generate initial buildings
-  for (let i = 0; i < 6; i++) {
-    buildings.push({
-      x: i * 150,
-      width: 100,
-      height: 180 + Math.random() * 100,
-    });
-  }
-
-  document.getElementById('gameOverOverlay').classList.add('hidden');
-  document.getElementById('gameScore').innerText = '0';
-  document.getElementById('gameCombo').innerText = 'x1';
-  updateVenomMeter(0);
-
-  if (gameLoopId) cancelAnimationFrame(gameLoopId);
-  gameLoop();
-}
-
-function gameLoop() {
-  if (!gameRunning) return;
-  updateGame();
-  renderGame();
-  gameLoopId = requestAnimationFrame(gameLoop);
-}
-
-function updateGame() {
-  score += combo;
-  document.getElementById('gameScore').innerText = score;
-
-  // Physics
-  if (milesObj.isSwinging) {
-    // Find closest anchor above
-    milesObj.vy -= 0.65;
-    milesObj.vy = Math.max(milesObj.vy, -6);
-  } else {
-    milesObj.vy += 0.35; // Gravity
-  }
-
-  milesObj.y += milesObj.vy;
-
-  // Ceiling & Floor Collision
-  if (milesObj.y < 20) {
-    milesObj.y = 20;
-    milesObj.vy = 0;
-  }
-  if (milesObj.y > 350) {
-    endGame();
+  if (!isConnected && cachedGroups.length === 0) {
+    container.innerHTML = `
+      <div class="grouphub-empty-state">
+        <div class="empty-spider-icon">🕸️</div>
+        <h4>WHATSAPP NOT CONNECTED</h4>
+        <p>Your bot is currently initializing or awaiting pairing. Go to the <b>Link & Pair</b> tab to connect your WhatsApp number first.</p>
+        <button class="cyber-btn main-cta" onclick="switchMainTab('pair')">
+          <span class="btn-spark">⚡</span> GO TO PAIRING TAB
+        </button>
+      </div>
+    `;
     return;
   }
 
-  // Scroll Buildings
-  for (let b of buildings) {
-    b.x -= 3;
-  }
-
-  if (buildings.length && buildings[0].x < -120) {
-    buildings.shift();
-    const lastB = buildings[buildings.length - 1];
-    buildings.push({
-      x: lastB.x + 130 + Math.random() * 40,
-      width: 90 + Math.random() * 40,
-      height: 160 + Math.random() * 120,
-    });
-  }
-
-  // Spawn Collectibles & Hazards
-  if (Math.random() < 0.03) {
-    collectibles.push({
-      x: 750,
-      y: 60 + Math.random() * 200,
-      radius: 10,
-      type: Math.random() > 0.3 ? 'spider' : 'venom',
-    });
-  }
-
-  if (Math.random() < 0.015) {
-    hazards.push({
-      x: 750,
-      y: 80 + Math.random() * 220,
-      radius: 14,
-    });
-  }
-
-  // Update Collectibles
-  for (let i = collectibles.length - 1; i >= 0; i--) {
-    const c = collectibles[i];
-    c.x -= 3.5;
-
-    const dx = c.x - milesObj.x;
-    const dy = c.y - milesObj.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    if (dist < c.radius + milesObj.radius) {
-      if (c.type === 'spider') {
-        score += 100 * combo;
-        combo = Math.min(combo + 1, 10);
-        playClickSound();
-        spawnComicBadge('THWIP! +100', milesObj.x, milesObj.y);
-      } else {
-        score += 250 * combo;
-        venomCharge = Math.min(venomCharge + 35, 100);
-        updateVenomMeter(venomCharge);
-        playVenomZapSound();
-        spawnComicBadge('⚡ VENOM CHARGE!', milesObj.x, milesObj.y);
-      }
-      document.getElementById('gameCombo').innerText = `x${combo}`;
-      collectibles.splice(i, 1);
-    } else if (c.x < -30) {
-      collectibles.splice(i, 1);
+  let filtered = cachedGroups.filter((g) => {
+    // 1. Search Query Filter
+    if (groupSearchQuery) {
+      const matchName = (g.subject || '').toLowerCase().includes(groupSearchQuery);
+      const matchId = (g.id || '').toLowerCase().includes(groupSearchQuery);
+      if (!matchName && !matchId) return false;
     }
+
+    // 2. Chip Filter
+    if (currentGroupFilter === 'admin') return g.isBotAdmin;
+    if (currentGroupFilter === 'allowed') return g.allowed;
+    if (currentGroupFilter === 'ai') return g.chatbot;
+    if (currentGroupFilter === 'antilink') return g.antilink;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="grouphub-empty-state">
+        <div class="empty-spider-icon">🔍</div>
+        <h4>NO MATCHING GROUPS FOUND</h4>
+        <p>No joined WhatsApp groups matched your filter (<b>${escapeHtml(groupSearchQuery || currentGroupFilter)}</b>).</p>
+        <button class="action-pill-btn" onclick="clearGroupFilters()">
+          Clear Filters
+        </button>
+      </div>
+    `;
+    return;
   }
 
-  // Update Hazards
-  for (let i = hazards.length - 1; i >= 0; i--) {
-    const h = hazards[i];
-    h.x -= 4.2;
+  container.innerHTML = filtered.map((g) => {
+    const safeSubject = escapeHtml(g.subject || 'Spider-Group');
+    const safeId = escapeHtml(g.id || '');
+    const initials = safeSubject.slice(0, 2).toUpperCase();
 
-    const dx = h.x - milesObj.x;
-    const dy = h.y - milesObj.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+    return `
+      <div class="group-control-card" id="card-${safeId}">
+        <!-- Card Header -->
+        <div class="group-card-header">
+          <div class="group-card-avatar">${initials}</div>
+          <div class="group-card-info">
+            <h4 class="group-card-title" title="${safeSubject}">${safeSubject}</h4>
+            <div class="group-card-meta">
+              <span class="meta-members">👥 ${g.memberCount} Members</span>
+              ${
+                g.isBotAdmin
+                  ? '<span class="meta-badge admin">⚡ Bot is Admin</span>'
+                  : '<span class="meta-badge not-admin">⚠️ Bot Not Admin</span>'
+              }
+            </div>
+            <div class="group-card-jid" onclick="copyText('${safeId}', 'Group ID copied!')" title="Click to copy Group JID">
+              <code>${safeId}</code> 📋
+            </div>
+          </div>
+        </div>
 
-    if (dist < h.radius + milesObj.radius) {
-      endGame();
-      return;
-    } else if (h.x < -40) {
-      hazards.splice(i, 1);
+        <!-- Toggle Switches Section -->
+        <div class="group-toggles-grid">
+          
+          <!-- 1. Whitelist / Allowed Toggle -->
+          <div class="toggle-row highlight-row">
+            <div class="toggle-info">
+              <span class="t-icon">🔑</span>
+              <div>
+                <div class="t-title">Bot Allowed (Whitelist)</div>
+                <div class="t-desc">Enable or disable bot commands in this group</div>
+              </div>
+            </div>
+            <label class="cyber-switch">
+              <input 
+                type="checkbox" 
+                ${g.allowed ? 'checked' : ''} 
+                onchange="handleGroupToggle('${safeId}', 'allowed', this)"
+              />
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+
+          <!-- 2. Anti-Link Toggle -->
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <span class="t-icon">🛡️</span>
+              <div>
+                <div class="t-title">Anti-Link Defense</div>
+                <div class="t-desc">Auto-delete unauthorized links</div>
+              </div>
+            </div>
+            <label class="cyber-switch">
+              <input 
+                type="checkbox" 
+                ${g.antilink ? 'checked' : ''} 
+                onchange="handleGroupToggle('${safeId}', 'antilink', this)"
+              />
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+
+          <!-- 3. Welcome Messages Toggle -->
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <span class="t-icon">👋</span>
+              <div>
+                <div class="t-title">Welcome Greetings</div>
+                <div class="t-desc">Send Spider-Verse welcome card to new members</div>
+              </div>
+            </div>
+            <label class="cyber-switch">
+              <input 
+                type="checkbox" 
+                ${g.welcome ? 'checked' : ''} 
+                onchange="handleGroupToggle('${safeId}', 'welcome', this)"
+              />
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+
+          <!-- 4. Auto-Sticker Toggle -->
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <span class="t-icon">🎨</span>
+              <div>
+                <div class="t-title">Auto-Sticker Converter</div>
+                <div class="t-desc">Instantly turn sent images into stickers</div>
+              </div>
+            </div>
+            <label class="cyber-switch">
+              <input 
+                type="checkbox" 
+                ${g.autosticker ? 'checked' : ''} 
+                onchange="handleGroupToggle('${safeId}', 'autosticker', this)"
+              />
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+
+          <!-- 5. Group AI Chatbot Toggle -->
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <span class="t-icon">🤖</span>
+              <div>
+                <div class="t-title">Miles AI Chatbot</div>
+                <div class="t-desc">Respond with Brooklyn AI personality when tagged</div>
+              </div>
+            </div>
+            <label class="cyber-switch">
+              <input 
+                type="checkbox" 
+                ${g.chatbot ? 'checked' : ''} 
+                onchange="handleGroupToggle('${safeId}', 'chatbot', this)"
+              />
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function clearGroupFilters() {
+  groupSearchQuery = '';
+  const input = document.getElementById('groupSearchInput');
+  if (input) input.value = '';
+  setGroupFilter('all');
+}
+
+async function handleGroupToggle(groupId, setting, checkboxEl) {
+  const isChecked = checkboxEl.checked;
+  playClickSound();
+
+  // Optimistically update cached data
+  const targetGroup = cachedGroups.find((g) => g.id === groupId);
+  if (targetGroup) {
+    targetGroup[setting] = isChecked;
+  }
+
+  try {
+    const res = await fetch('/api/group/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId, setting, value: isChecked }),
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      playVenomZapSound();
+      showToast(`🕷️ ${setting.toUpperCase()} is now ${isChecked ? 'ON' : 'OFF'}!`);
+      spawnComicBadge(isChecked ? 'ACTIVATED!' : 'DISABLED!');
+    } else {
+      throw new Error(data.error || 'Server error');
     }
+  } catch (err) {
+    console.error('Failed to update group setting:', err);
+    checkboxEl.checked = !isChecked;
+    if (targetGroup) targetGroup[setting] = !isChecked;
+    showToast(`⚠️ Error: ${err.message}`);
   }
 }
 
-function renderGame() {
-  if (!gameCtx) return;
-  gameCtx.clearRect(0, 0, 700, 380);
-
-  // Background Brooklyn Skyline
-  gameCtx.fillStyle = '#080a14';
-  gameCtx.fillRect(0, 0, 700, 380);
-
-  // Draw Buildings
-  for (let b of buildings) {
-    gameCtx.fillStyle = '#121626';
-    gameCtx.fillRect(b.x, 380 - b.height, b.width, b.height);
-    gameCtx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
-    gameCtx.strokeRect(b.x, 380 - b.height, b.width, b.height);
-
-    // Glowing windows
-    gameCtx.fillStyle = 'rgba(255, 223, 0, 0.3)';
-    for (let r = 0; r < 4; r++) {
-      for (let c = 0; c < 2; c++) {
-        gameCtx.fillRect(b.x + 15 + c * 35, 380 - b.height + 20 + r * 30, 15, 15);
-      }
-    }
-  }
-
-  // Draw Web Strand if Swinging
-  if (milesObj.isSwinging) {
-    gameCtx.beginPath();
-    gameCtx.moveTo(milesObj.x, milesObj.y);
-    gameCtx.lineTo(milesObj.x + 80, 0);
-    gameCtx.strokeStyle = '#fff';
-    gameCtx.lineWidth = 2.5;
-    gameCtx.stroke();
-  }
-
-  // Draw Collectibles
-  for (let c of collectibles) {
-    gameCtx.beginPath();
-    gameCtx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
-    gameCtx.fillStyle = c.type === 'spider' ? '#ff0055' : '#00f0ff';
-    gameCtx.fill();
-    gameCtx.strokeStyle = '#fff';
-    gameCtx.stroke();
-  }
-
-  // Draw Hazards (Glitch Portals)
-  for (let h of hazards) {
-    gameCtx.beginPath();
-    gameCtx.arc(h.x, h.y, h.radius, 0, Math.PI * 2);
-    gameCtx.fillStyle = '#ff003b';
-    gameCtx.fill();
-    gameCtx.strokeStyle = '#ffdf00';
-    gameCtx.lineWidth = 2;
-    gameCtx.stroke();
-  }
-
-  // Draw Miles Character
-  gameCtx.beginPath();
-  gameCtx.arc(milesObj.x, milesObj.y, milesObj.radius, 0, Math.PI * 2);
-  gameCtx.fillStyle = '#ff0055';
-  gameCtx.fill();
-  gameCtx.strokeStyle = '#fff';
-  gameCtx.lineWidth = 2;
-  gameCtx.stroke();
-
-  // Spider Eyes on Character
-  gameCtx.fillStyle = '#fff';
-  gameCtx.beginPath();
-  gameCtx.ellipse(milesObj.x + 4, milesObj.y - 2, 4, 2, Math.PI / 4, 0, Math.PI * 2);
-  gameCtx.fill();
-}
-
-function updateVenomMeter(val) {
-  const fill = document.getElementById('venomBarFill');
-  const btn = document.getElementById('gameVenomBtn');
-  if (fill) fill.style.width = `${val}%`;
-  if (btn) btn.disabled = val < 100;
-}
-
-function gameTriggerVenom() {
-  if (venomCharge < 100) return;
-  venomCharge = 0;
-  updateVenomMeter(0);
-  hazards = [];
-  combo = Math.min(combo * 2, 20);
-  document.getElementById('gameCombo').innerText = `x${combo}`;
-  triggerVenomBlast();
-  spawnComicBadge('⚡ VENOM CLEAR! 2X MULTIPLIER ⚡');
-}
-
-function endGame() {
-  gameRunning = false;
-  playGlitchSound();
-  if (score > highScore) {
-    highScore = score;
-    localStorage.setItem('miles_high_score', highScore);
-    document.getElementById('gameHighScore').innerText = highScore;
-    spawnComicBadge('🏆 NEW HIGH SCORE!');
-  }
-
-  const overlay = document.getElementById('gameOverOverlay');
-  const title = document.getElementById('overlayTitle');
-  const scoreBox = document.getElementById('overlayScoreBox');
-  document.getElementById('finalScore').innerText = score;
-  document.getElementById('finalBest').innerText = highScore;
-
-  title.innerText = 'GLITCH DETECTED!';
-  scoreBox.style.display = 'flex';
-  overlay.classList.remove('hidden');
+function copyText(text, toastMsg = 'Copied to clipboard!') {
+  playClickSound();
+  navigator.clipboard.writeText(text).then(() => {
+    showToast(toastMsg);
+    spawnComicBadge('COPIED!');
+  });
 }
 
 // Helper: Escape HTML

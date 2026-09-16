@@ -105,6 +105,11 @@
           <span class="tab-icon">⚡</span>
           <span class="tab-title">LINK & PAIR</span>
         </button>
+        <button class="nav-tab" id="tab-groups" onclick="switchMainTab('groups')" role="tab">
+          <span class="tab-icon">🎛️</span>
+          <span class="tab-title">GROUP HUB</span>
+          <span class="tab-badge special" id="groupsNavBadge">LIVE</span>
+        </button>
         <button class="nav-tab" id="tab-chat" onclick="switchMainTab('chat')" role="tab">
           <span class="tab-icon">💬</span>
           <span class="tab-title">VENOM AI CHAT</span>
@@ -116,12 +121,7 @@
         </button>
         <button class="nav-tab" id="tab-multiverse" onclick="switchMainTab('multiverse')" role="tab">
           <span class="tab-icon">🕸️</span>
-          <span class="tab-title">MULTIVERSE DECK</span>
-        </button>
-        <button class="nav-tab" id="tab-game" onclick="switchMainTab('game')" role="tab">
-          <span class="tab-icon">🎮</span>
-          <span class="tab-title">LEAP OF FAITH</span>
-          <span class="tab-badge special">MINI-GAME</span>
+          <span class="tab-title">PERSONAS</span>
         </button>
         <button class="nav-tab" id="tab-telemetry" onclick="switchMainTab('telemetry')" role="tab">
           <span class="tab-icon">📊</span>
@@ -373,13 +373,13 @@
             <!-- Quick Run Presets -->
             <div class="term-quick-chips">
               <span class="q-label">Try:</span>
-              <button class="q-chip" onclick="simulateCommand('spidersense')">.spidersense</button>
-              <button class="q-chip" onclick="simulateCommand('venom')">.venom</button>
-              <button class="q-chip" onclick="simulateCommand('spidertrivia')">.spidertrivia</button>
-              <button class="q-chip" onclick="simulateCommand('spidersuit')">.spidersuit</button>
-              <button class="q-chip" onclick="simulateCommand('multiverse')">.multiverse</button>
-              <button class="q-chip" onclick="simulateCommand('leapoffaith')">.leapoffaith</button>
-              <button class="q-chip" onclick="simulateCommand('alive')">.alive</button>
+              <button class="q-chip" onclick="simulateCommand('spidersense')">/spidersense</button>
+              <button class="q-chip" onclick="simulateCommand('venom')">/venom</button>
+              <button class="q-chip" onclick="simulateCommand('spidertrivia')">/spidertrivia</button>
+              <button class="q-chip" onclick="simulateCommand('spidersuit')">/spidersuit</button>
+              <button class="q-chip" onclick="simulateCommand('multiverse')">/multiverse</button>
+              <button class="q-chip" onclick="simulateCommand('leapoffaith')">/leapoffaith</button>
+              <button class="q-chip" onclick="simulateCommand('alive')">/alive</button>
             </div>
 
             <!-- Terminal Output Window -->
@@ -396,7 +396,7 @@
               <input 
                 type="text" 
                 id="terminalInput" 
-                placeholder="Type command (e.g. .spidersense or .miles)..." 
+                placeholder="Type command (e.g. /spidersense or /miles)..." 
                 autocomplete="off" 
               />
               <button type="submit" class="term-exec-btn">RUN</button>
@@ -426,47 +426,60 @@
         </div>
       </section>
 
-      <!-- TAB 5: LEAP OF FAITH MINI-GAME -->
-      <section class="tab-pane" id="pane-game">
-        <div class="game-wrapper">
-          <div class="game-header-bar">
-            <div class="game-stats">
-              <div class="g-stat"><span class="lbl">SCORE:</span> <span class="val" id="gameScore">0</span></div>
-              <div class="g-stat"><span class="lbl">HIGH SCORE:</span> <span class="val highlight" id="gameHighScore">0</span></div>
-              <div class="g-stat"><span class="lbl">COMBO:</span> <span class="val" id="gameCombo">x1</span></div>
+      <!-- TAB: VISUAL GROUP COMMAND HUB -->
+      <section class="tab-pane" id="pane-groups">
+        <div class="grouphub-wrapper">
+          
+          <!-- Hub Header Bar -->
+          <div class="grouphub-header">
+            <div class="grouphub-title-area">
+              <h3>🎛️ VISUAL GROUP COMMAND HUB</h3>
+              <p>Manage all joined WhatsApp groups with instant live toggles for security, automation, whitelist & AI.</p>
             </div>
             
-            <div class="game-actions">
-              <div class="venom-meter-container">
-                <span class="v-label">VENOM:</span>
-                <div class="v-bar-track">
-                  <div class="v-bar-fill" id="venomBarFill" style="width: 0%;"></div>
-                </div>
-                <button class="v-trigger-btn" id="gameVenomBtn" onclick="gameTriggerVenom()" disabled>⚡ BLAST</button>
+            <div class="grouphub-top-actions">
+              <div class="hub-pill">
+                <span class="pill-label">JOINED:</span>
+                <span class="pill-val" id="hubTotalGroupsCount">0 Groups</span>
               </div>
+              <div class="hub-pill">
+                <span class="pill-label">BOT MODE:</span>
+                <span class="pill-val highlight" id="hubBotModeVal">PUBLIC</span>
+              </div>
+              <button class="action-pill-btn refresh-groups-btn" onclick="fetchGroups(true)">
+                <span>🔄</span> REFRESH GROUPS
+              </button>
             </div>
           </div>
 
-          <!-- Game Canvas Container -->
-          <div class="game-viewport">
-            <canvas id="gameCanvas" width="700" height="380"></canvas>
-            
-            <!-- Game Overlay Start / Game Over -->
-            <div class="game-overlay" id="gameOverOverlay">
-              <div class="overlay-box">
-                <h2 id="overlayTitle">LEAP OF FAITH</h2>
-                <p id="overlaySubtitle">Swing through Brooklyn rooftops! Tap / Click or press Spacebar to shoot webs and swing.</p>
-                <div class="overlay-stats" id="overlayScoreBox" style="display: none;">
-                  <div>Score: <b id="finalScore">0</b></div>
-                  <div>Best: <b id="finalBest">0</b></div>
-                </div>
-                <button class="cyber-btn main-cta" onclick="startGame()">
-                  <span class="btn-spark">🕸️</span> START SWINGING
-                </button>
-                <p class="game-hint">Controls: [Click / Tap / Spacebar] = Shoot Web | [V Key] = Venom Surge</p>
-              </div>
+          <!-- Filter & Search Bar -->
+          <div class="grouphub-filter-bar">
+            <div class="group-search-box">
+              <span class="search-icon">🔍</span>
+              <input 
+                type="text" 
+                id="groupSearchInput" 
+                placeholder="Search joined groups by title or ID..." 
+                oninput="filterGroupsList(this.value)"
+              />
+            </div>
+            <div class="group-filter-chips">
+              <button class="filter-chip active" id="chip-filter-all" onclick="setGroupFilter('all')">ALL</button>
+              <button class="filter-chip" id="chip-filter-admin" onclick="setGroupFilter('admin')">BOT IS ADMIN ⚡</button>
+              <button class="filter-chip" id="chip-filter-allowed" onclick="setGroupFilter('allowed')">WHITELISTED 🔑</button>
+              <button class="filter-chip" id="chip-filter-ai" onclick="setGroupFilter('ai')">AI CHATBOT 🤖</button>
+              <button class="filter-chip" id="chip-filter-antilink" onclick="setGroupFilter('antilink')">ANTI-LINK 🛡️</button>
             </div>
           </div>
+
+          <!-- Group Cards Grid Container -->
+          <div class="group-cards-grid" id="groupCardsGrid">
+            <div class="group-hub-loading">
+              <div class="spider-spinner"></div>
+              <span>Scanning WhatsApp Multiverse groups...</span>
+            </div>
+          </div>
+
         </div>
       </section>
 

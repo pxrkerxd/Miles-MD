@@ -20,8 +20,15 @@ import { Boom } from "@hapi/boom";
 import { readcommands, commands } from "./System/ReadCommands.js";
 import Core from "./Core.js";
 import MongoAuth from "./System/MongoAuth/MongoAuth.js";
-import { serialize } from "./System/whatsapp.js";
-import { checkWelcome } from "./System/MongoDB/MongoDb_Core.js";
+import {
+  checkWelcome,
+  getGroupSettings,
+  updateGroupSetting,
+  setChar,
+  getChar,
+  getBotMode,
+  setBotMode,
+} from "./System/MongoDB/MongoDb_Core.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -357,6 +364,113 @@ app.get("/api/logs", (req, res) => {
   res.json({ logs: systemLogs });
 });
 
+// Visual Group Command Hub: Get all joined groups and their toggle status
+app.get("/api/groups", async (req, res) => {
+  try {
+    const isConnected = status === "open" && Boolean(SpiderSocket);
+    let rawGroups = {};
+
+    if (isConnected) {
+      try {
+        rawGroups = await SpiderSocket.groupFetchAllParticipating();
+      } catch (err) {
+        console.warn(chalk.yellow(`[ GROUP FETCH WARNING ] ${err.message}`));
+      }
+    }
+
+    const botJid = SpiderSocket?.user?.id ? jidNormalizedUser(SpiderSocket.user.id) : "";
+    const botLid = SpiderSocket?.user?.lid ? jidNormalizedUser(SpiderSocket.user.lid) : "";
+    const botNum = botJid ? botJid.split("@")[0].replace(/[^0-9]/g, "") : "";
+
+    const groupList = [];
+    for (const [gId, gData] of Object.entries(rawGroups)) {
+      const participants = gData.participants || [];
+      const botParticipant = participants.find((p) => {
+        const pJid = jidNormalizedUser(p.id);
+        const pNum = pJid.split("@")[0].replace(/[^0-9]/g, "");
+        return (
+          (botJid && pJid === botJid) ||
+          (botLid && pJid === botLid) ||
+          (botNum && pNum === botNum)
+        );
+      });
+
+      const isBotAdmin = Boolean(
+        botParticipant && (botParticipant.admin === "admin" || botParticipant.admin === "superadmin")
+      );
+
+      const settings = await getGroupSettings(gId);
+
+      groupList.push({
+        id: gId,
+        subject: gData.subject || "Spider-Group",
+        desc: gData.desc || "",
+        creation: gData.creation,
+        owner: gData.owner,
+        memberCount: participants.length,
+        isBotAdmin,
+        antilink: settings.antilink,
+        welcome: settings.welcome,
+        autosticker: settings.autosticker,
+        chatbot: settings.chatbot,
+        allowed: settings.allowed,
+        antidelete: settings.antidelete,
+      });
+    }
+
+    const currentMode = await getBotMode();
+    const currentCharId = await getChar();
+
+    res.json({
+      connected: isConnected,
+      groups: groupList,
+      totalGroups: groupList.length,
+      botMode: currentMode,
+      charId: currentCharId,
+    });
+  } catch (err) {
+    console.error(chalk.red("[ API GROUPS ERROR ]"), err.message);
+    res.status(500).json({ error: err.message, groups: [] });
+  }
+});
+
+// Visual Group Command Hub: Instant toggle switch endpoint
+app.post("/api/group/toggle", async (req, res) => {
+  const { groupId, setting, value } = req.body;
+  if (!groupId || !setting) {
+    return res.status(400).json({ error: "groupId and setting are required." });
+  }
+
+  try {
+    const result = await updateGroupSetting(groupId, setting, value);
+    addSystemLog(
+      "system",
+      `Group Toggle: ${groupId.substring(0, 15)}... | ${setting} = ${Boolean(value)}`
+    );
+    res.json(result);
+  } catch (err) {
+    console.error(chalk.red("[ GROUP TOGGLE ERROR ]"), err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Active Persona API
+app.get("/api/persona", async (req, res) => {
+  const charId = await getChar();
+  const currentChar = global[`charID${charId}`] || global.charID0;
+  res.json({ charId, persona: currentChar });
+});
+
+app.post("/api/set-persona", async (req, res) => {
+  const { charId } = req.body;
+  if (charId === undefined || charId === null) {
+    return res.status(400).json({ error: "charId is required." });
+  }
+  await setChar(String(charId));
+  addSystemLog("system", `Multiverse Persona switched to: [ ${charId} ]`);
+  res.json({ success: true, charId: String(charId) });
+});
+
 app.get("/api/qr", async (req, res) => {
   if (status === "open") {
     return res.json({ status: "connected" });
@@ -452,7 +566,8 @@ app.post("/api/chat", async (req, res) => {
   } else if (q.includes("suit") || q.includes("jordan") || q.includes("shoes")) {
     reply = "Classic black and red suit with spray-painted graffiti spider emblem, paired with Chicago Air Jordan 1s. Pure Brooklyn drip. 👟🕷️";
   } else if (q.includes("help") || q.includes("commands") || q.includes("bot")) {
-    reply = `You can run all my WhatsApp commands using prefix \`${global.prefa || "/"}\`. Check the Command Simulator tab right here to test .spidersense, .spidertrivia, .multiverse, or .leapoffaith!`;
+    const p = global.prefa || "/";
+    reply = `You can run all my WhatsApp commands using prefix \`${p}\`. Check the Command Simulator tab right here to test ${p}spidersense, ${p}spidertrivia, ${p}multiverse, or ${p}leapoffaith!`;
   } else {
     const randomMilesQuotes = [
       "Yo, Brooklyn is quiet today, but my Spider-Sense is always locked in. What can I help you cook up?",
@@ -472,10 +587,9 @@ app.post("/api/simulate-cmd", async (req, res) => {
   let { cmd, args } = req.body;
   if (!cmd) return res.status(400).json({ error: "Command name is required." });
 
-  cmd = cmd.replace(/^[\.\/\!\#]/, "").toLowerCase().trim();
-  addSystemLog("cmd", `Simulating Command: .${cmd} ${args || ""}`);
-
+  cmd = cmd.replace(/^\//, "").toLowerCase().trim();
   const pref = global.prefa || "/";
+  addSystemLog("cmd", `Simulating Command: ${pref}${cmd} ${args || ""}`);
 
   switch (cmd) {
     case "spidersense": {

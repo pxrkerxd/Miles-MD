@@ -12,6 +12,7 @@ import {
   checkPmChatbot,
   getBotMode,
   checkBanGroup,
+  checkGroupAllowed,
   checkAntilink,
   checkGroupChatbot,
   checkAutosticker,
@@ -30,20 +31,9 @@ export default async (SpiderBot, m, commands, chatUpdate) => {
     // Do not process messages sent by bot unless it is an explicit command from the owner
     if (m.isBot) return;
 
-    // Multi-prefix support: support /, ., !, # or custom prefix
-    const allowedPrefixes = ["/", ".", "!", "#"];
-    if (global.prefa && !allowedPrefixes.includes(global.prefa)) {
-      allowedPrefixes.unshift(global.prefa);
-    }
-    let matchedPrefix = "";
-    for (const p of allowedPrefixes) {
-      if (body.startsWith(p)) {
-        matchedPrefix = p;
-        break;
-      }
-    }
-    const isCmd = Boolean(matchedPrefix);
-    const prefix = matchedPrefix || global.prefa || "/";
+    // Single prefix support: strictly "/"
+    const prefix = global.prefa || "/";
+    const isCmd = body.startsWith(prefix);
 
     if (m.fromMe && !isCmd) return;
 
@@ -77,6 +67,9 @@ export default async (SpiderBot, m, commands, chatUpdate) => {
       if (isGroup) {
         const isGrBanned = await checkBanGroup(from);
         if (isGrBanned) return;
+
+        const isAllowed = await checkGroupAllowed(from);
+        if (!isAllowed) return;
       }
     }
 
