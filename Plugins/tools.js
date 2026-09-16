@@ -17,7 +17,7 @@ const getTitle = (level) => {
 export default {
   name: "tools",
   alias: [...commands],
-  uniquecommands: ["profile", "tts", "qr", "calc", "shorturl"],
+  uniquecommands: ["profile", "tts", "say", "qr", "calc", "shorturl"],
   description: "Everyday productivity and utility tools",
   start: async (
     SpiderBot,
@@ -132,22 +132,45 @@ export default {
       case "say": {
         await doReact("🗣️");
         let content = text || (m.quoted ? m.quoted.text : "");
-        if (!content) return m.reply(`Usage: \`${prefix}tts <text to speak>\``);
+        if (!content) return m.reply(`Usage: \`${prefix}say <text to speak>\` or \`${prefix}tts <language_code> <text>\`\nExample: \`${prefix}say Hello Brooklyn!\``);
 
         try {
-          const audioUrl = googleTTS.getAudioUrl(content.slice(0, 200), {
-            lang: "en",
-            slow: false,
-            host: "https://translate.google.com",
-          });
+          let lang = "en";
+          let toSpeak = content;
+          const langMatch = content.match(/^([a-z]{2})\s+(.+)$/i);
+          if (langMatch) {
+            lang = langMatch[1].toLowerCase();
+            toSpeak = langMatch[2];
+          }
 
-          return SpiderBot.sendMessage(
+          const base64 = await googleTTS.getAudioBase64(toSpeak.slice(0, 300), {
+            lang,
+            slow: false,
+            timeout: 10000,
+          });
+          const audioBuffer = Buffer.from(base64, "base64");
+
+          return await SpiderBot.sendMessage(
             m.from,
-            { audio: { url: audioUrl }, mimetype: "audio/mp4", ptt: true },
+            { audio: audioBuffer, mimetype: "audio/mp4", ptt: true },
             { quoted: m }
           );
         } catch (err) {
-          return m.reply(`⚠️ TTS failed: ${err.message}`);
+          try {
+            const base64 = await googleTTS.getAudioBase64(content.slice(0, 300), {
+              lang: "en",
+              slow: false,
+              timeout: 10000,
+            });
+            const audioBuffer = Buffer.from(base64, "base64");
+            return await SpiderBot.sendMessage(
+              m.from,
+              { audio: audioBuffer, mimetype: "audio/mp4", ptt: true },
+              { quoted: m }
+            );
+          } catch (e) {
+            return m.reply(`⚠️ TTS voice synthesis failed: ${err.message}`);
+          }
         }
       }
 
